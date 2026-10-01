@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VZ80</title>
+<style>
+html{scrollbar-gutter:stable}
+body{font-family:system-ui,sans-serif;margin:0;background:#14161a;color:#e8e8e8}
+header{padding:10px 16px;background:#20242c;display:flex;justify-content:space-between;align-items:baseline}
+header h1{font-size:18px;margin:0;color:#ffb0a0}
+header h1 span{font-size:12px;color:#9aa;margin-left:8px;font-weight:normal}
+#wifi{font-size:12px;color:#9aa}
+main{max-width:720px;margin:0 auto;padding:12px;overflow-x:hidden}
+.card{background:#20242c;border-radius:8px;padding:12px 14px;margin:10px 0}
+.card h2{font-size:14px;margin:0 0 8px;color:#9fd49f}
+.meta{font-size:12px;color:#9aa;margin:4px 0}
+small{color:#9aa}
+button{background:#31405a;color:#e8e8e8;border:0;border-radius:5px;padding:5px 10px;margin:2px 4px 2px 0;cursor:pointer;font-size:13px}
+button:hover{background:#3f5378}
+button.warn{background:#5a3131}button.warn:hover{background:#7a3d3d}
+button.on{background:#2e6b34}button.on:hover{background:#388540}
+button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#31405a}
+button.x{background:none;border:0;color:#9aa;font-size:22px;line-height:1;padding:0 4px;margin:0}button.x:hover{background:none;color:#fff}
+button.ico{margin:0;padding:5px 7px;line-height:0;display:inline-flex;align-items:center}
+select{background:#14161a;color:#e8e8e8;border:1px solid #2a2f38;border-radius:5px;padding:5px 8px;font-size:13px}
+input[type=text],input[type=password],input[type=number]{background:#14161a;color:#e8e8e8;border:1px solid #2a2f38;border-radius:5px;padding:5px 8px;font-size:13px;font-family:ui-monospace,monospace}
+input[type=file]{font-size:12px}
+input[type=file]:disabled::file-selector-button{opacity:.4;cursor:default}
+input[type=file]::file-selector-button{background:#31405a;color:#e8e8e8;border:0;border-radius:5px;padding:5px 10px;margin-right:8px;cursor:pointer;font-size:13px}
+label.chk{font-size:12px;color:#9aa;margin-left:8px}
+.seg{display:inline-flex;border:1px solid #3f5378;border-radius:6px;overflow:hidden;vertical-align:middle;margin:2px 8px 2px 0}
+.seg button{margin:0;border-radius:0;white-space:nowrap;background:#20242c;color:#9aa;padding:5px 12px;border-right:1px solid #3f5378}
+.seg button:last-child{border-right:0}.seg button:hover{background:#2a3446;color:#e8e8e8}.seg button.on{background:#31405a;color:#fff;font-weight:600}
+.seg.small button{font-size:12px;padding:5px 7px}
+.segrow{display:flex;align-items:center;flex-wrap:wrap;margin:6px 0;row-gap:4px}.segrow .lbl{font-size:13px;color:#9aa;min-width:120px}
+.info{display:grid;grid-template-columns:max-content 1fr;gap:2px 16px;font-size:13px}.info span:nth-child(odd){color:#9aa;white-space:nowrap}
+.ok{color:#7ee787}.err{color:#ff7b72}
+#scr{display:block;background:#000;border-radius:4px;image-rendering:pixelated;margin:0 auto;image-rendering:pixelated;display:block;margin:0 auto}
+#near .dev{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #2a2f38}
+#near .dev:last-child{border-bottom:none}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;margin-right:8px;min-width:44px;text-align:center;box-sizing:border-box;vertical-align:1px}
+.tag.virt{background:#27394a;color:#7ec8ff}.tag.phys{background:#274a2b;color:#9fd49f}.tag.none{background:#33363c;color:#9aa}.tag.sm{min-width:0;padding:1px 6px;margin:0 2px}
+.tag.vhd68{background:#274a2b;color:#9fd49f}.tag.vfd68{background:#27394a;color:#7ec8ff}.tag.vmpu68{background:#3d2f4a;color:#d8a8ff}.tag.vz80{background:#4a2f2f;color:#ffb0a0}.tag.x{background:#4a3a27;color:#d4b88f}
+a{color:#7ec8ff;text-decoration:none}a[onclick]{cursor:pointer}a[onclick]:hover{text-decoration:underline}
+#con{font:12px/1.5 ui-monospace,monospace;background:#14161a;border:1px solid #2a2f38;border-radius:6px;padding:8px;height:180px;overflow:auto;white-space:pre-wrap;margin:6px 0}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:25}
+.pickbox{background:#20242c;border-radius:8px;padding:14px;width:min(420px,90vw)}
+.pickbox h2{font-size:14px;margin:0;color:#9fd49f}
+#progbar{height:10px;background:#14161a;border:1px solid #2a2f38;border-radius:5px;overflow:hidden;margin:10px 0 6px}
+#progfill{height:100%;width:0;background:#7ec8ff;transition:width .3s}
+#proglog{font:12px/1.5 ui-monospace,monospace;color:#9aa;white-space:pre-wrap;max-height:160px;overflow:auto}
+#ctxmenu{position:fixed;background:#2a3240;border:1px solid #45506a;border-radius:6px;padding:4px;z-index:26;box-shadow:0 4px 14px #0008;display:none}
+#ctxmenu button{display:block;width:100%;text-align:left;margin:1px 0;background:none}
+#ctxmenu button:hover{background:#3f5378}
+#ctxmenu button.warn:hover{background:#5a3131}
+#crumb{font-size:13px;color:#cfc;margin-bottom:6px;word-break:break-all}#crumb a,#icrumb a{color:#7ec8ff;cursor:pointer;margin:0}#crumb b,#icrumb b{color:#cfc;font-weight:normal}
+.files div.row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #2a2f38;min-height:26px}
+.files .fn{cursor:default;word-break:break-all;display:flex;align-items:center;gap:6px;min-width:0}
+.files .dir{color:#7ec8ff;cursor:pointer}
+.files .txt{cursor:pointer}.files .txt:hover{text-decoration:underline}
+.files div.row>span:last-child{display:flex;flex-shrink:0;white-space:nowrap;align-items:center;margin-left:8px;gap:8px}
+.files .ic{width:22px;height:18px;flex:0 0 22px;position:relative;display:inline-flex;align-items:center;justify-content:center;color:#c9d1d9}
+.files .ic svg{width:18px;height:18px}
+.files .ic.cached::after{content:"";position:absolute;right:0;bottom:0;width:8px;height:8px;border-radius:50%;background:#7ec8ff;border:1.5px solid #20242c}
+.files .mnt{color:#7ee787;font-size:12px}
+.files small{color:#9aa;font-variant-numeric:tabular-nums}
+.dropzone{border:1px dashed #4a5568;border-radius:6px;padding:10px 12px;flex:1}
+.dropzone.drop{border-color:#7ec8ff;background:#26303e}
+.dropzone .meta{margin:6px 0 0}
+.viewbox{background:#20242c;border-radius:8px;padding:14px;width:min(640px,92vw);max-height:86vh;display:flex;flex-direction:column;box-sizing:border-box}
+.viewbox.wide{width:min(720px,94vw)}
+.viewbox pre,.viewbox textarea{flex:1;overflow:auto;overscroll-behavior:contain;background:#14161a;border:1px solid #2a2f38;border-radius:6px;padding:8px;margin:8px 0;font:12px/1.5 ui-monospace,monospace;color:#e8e8e8;white-space:pre-wrap;word-break:break-all;min-height:200px;box-sizing:border-box;width:100%}
+.viewbox textarea{resize:vertical;min-height:280px}
+.viewbox pre{background:#252b36;border-color:#3a4356}
+.viewbox h2{font-size:14px;margin:0;color:#9fd49f}
+.viewbox .body{overflow:auto;flex:1;min-height:0}
+.drv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #2a2f38;min-height:32px}
+.drv:last-child{border-bottom:none}
+.drv .lbl{color:#9aa;margin-right:8px;white-space:nowrap}
+.drv .cur{color:#7ec8ff;font-weight:600}
+.drv>span:first-child{min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.drv>span:first-child>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drv>span:last-child{flex:0 0 auto;white-space:nowrap;margin-left:8px}.drv>span:last-child button{white-space:nowrap}.drv button.more{padding:4px 9px;margin-left:6px;font-weight:700}
+.drv .dim{color:#9aa}
+.smap{display:flex;flex-direction:column;gap:5px;margin-top:6px;font-size:14px}
+.smap .hdr,.smap .row{display:flex;gap:5px;align-items:stretch}
+.smap .rl{flex:0 0 76px;display:flex;flex-direction:column;justify-content:center;color:#c8ccd4;line-height:1.25}.smap .rl small{color:#8a94a6;font-size:11px}
+.smap .cell{flex:1 1 0;min-width:0;min-height:46px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px 6px;box-sizing:border-box;line-height:1.25;overflow:hidden}
+.smap .cell .sub{font-size:11px;color:#9aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:3px}
+.smap .hdr .cell{min-height:0;padding:0 6px 2px;color:#9aa;font-size:12px;line-height:1.2}.smap .hdr .cell small{color:#667;font-size:10px}
+.smap .cell.sys{background:#2b2f37;color:#c8ccd4}.smap .cell.ram{background:#2a3a2b;color:#9fd49f}.smap .cell.phys{background:#274a2b;color:#9fd49f}
+.smap .cell.empty{border:1px dashed #3a4354;color:#5c6577}.smap .cell.empty button{padding:0 12px;font-size:15px;margin:0;line-height:22px;background:#20242c;color:#7ec8ff;border-radius:6px}
+.smap .cell.unk{border:1px solid #2a2f38;color:#889}
+.smap .cell.cart{background:#27394a;color:#7ec8ff;font-weight:600}.smap .cell.cart .sub{color:#9ab;font-weight:400}.smap .cell.cart button{padding:1px 8px;font-size:11px;margin:0 0 0 8px;vertical-align:1px}
+@media (max-width:480px){.smap{font-size:12px}.smap .rl{flex-basis:52px}.smap .cell{padding:4px 3px}}
+#fdcfg .segrow{min-height:40px;box-sizing:border-box;margin:2px 0}
+#fdcfg .vrow{position:relative;background:#20242c;border-radius:6px;min-height:28px;margin:0}#fdcfg .vrow.drag{opacity:.5}#fdcfg .vrow.over{box-shadow:0 -2px 0 #7ec8ff}
+.grip{cursor:grab;color:#6b7386;font-size:18px;padding:0 8px 0 2px;user-select:none;touch-action:none;line-height:1}.grip:active{cursor:grabbing}
+.tag.hdd{background:#3d2f4a;color:#d8a8ff}
+.pg{display:inline-block;min-width:11px;padding:0 2px;margin-left:3px;border-radius:4px;border:1px solid #4a5a78;background:none;color:#bcd;font-size:10px;font-weight:700;line-height:15px;text-align:center;vertical-align:1px;font-family:ui-monospace,monospace}
+.smap .cell .sub .pg{border-color:#3a4658;color:#9ab}.smap .cell.cart .sub .pg{border-color:#3f5378;color:#9ec8f0}
+.offline{background:#4a2f2f;color:#ffb0a0;border-radius:6px;padding:8px 12px;margin:14px auto 18px;font-size:13px;display:none;max-width:720px}
+body.stale #info,body.stale #info2,body.stale #fdd,body.stale #slots,body.stale #cfg{opacity:.5;pointer-events:none}
+.name{font-weight:600;word-break:break-all}
+.spin{width:16px;height:16px;border:2px solid #4a5568;border-top-color:#7ec8ff;border-radius:50%;animation:spin .8s linear infinite;flex:0 0 16px}@keyframes spin{to{transform:rotate(360deg)}}
+#pickmodal{z-index:22}#viewmodal{z-index:23}#askmodal{z-index:27}
+@media (max-width:480px){.segrow .lbl{flex:0 0 100%;min-width:0;margin-bottom:2px}.drv{flex-wrap:wrap;row-gap:4px}}
+#msg{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:#333c;padding:8px 16px;border-radius:6px;display:none;z-index:30}#msg.err{background:#b3232ae6;color:#fff;font-weight:600}
+</style>
+</head>
+<body>
+<header><h1 id="ttl">VZ80<span id="hname"></span></h1><span id="wifi"></span></header>
+<main>
+<div id="offline" class="offline"></div>
+<div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap"><div class="card" style="flex:1 1 min(300px,100%);margin:10px 0 0"><h2>VZ80 情報</h2><div id="info" class="info"></div></div><div class="card" style="flex:1 1 min(300px,100%);margin:10px 0 0"><h2>MSX 情報</h2><div id="info2" class="info"></div></div></div>
+<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+<div style="flex:1 1 min(380px,100%);display:flex;flex-direction:column;gap:10px;margin:10px 0 0"><div class="card" style="margin:0"><h2>CPU 設定</h2>
+<div class="segrow"><span class="lbl">速度</span><span class="seg" id="segspeed"><button data-v="0" onclick="cfg('speed',0)" title="実機の Z80 と同じ 3.58 MHz 相当">MSX2</button><button data-v="2" onclick="cfg('speed',2)" title="turboR（R800）相当: 3.58 MHz の約 5.4 倍">turboR</button><button data-v="1" onclick="cfg('speed',1)" title="制限なし（150 MHz で約 9 倍）">Max</button></span></div>
+<div class="meta" id="cfginfo"></div>
+<details style="margin-top:8px"><summary class="meta" style="cursor:pointer">詳細</summary>
+<div class="segrow" style="margin-top:6px"><span class="lbl">VDP アクセス間隔</span><span class="seg small" id="segvdp"><button data-v="6" onclick="cfg('vdpgap',6)">6 µs</button><button data-v="7" onclick="cfg('vdpgap',7)">7 µs</button><button data-v="8" onclick="cfg('vdpgap',8)">8 µs</button><button data-v="12" onclick="cfg('vdpgap',12)">12 µs</button></span></div>
+<div class="meta">VDP のポートに続けてアクセスするときの最小間隔です。短いほど画面書き換えが速くなりますが、短すぎると VDP が取りこぼして画面が乱れたり止まったりします。</div>
+<div class="segrow" style="margin-top:14px"><span class="lbl">RP2350 クロック</span><span class="seg small" id="segclk"><button data-v="150" onclick="cfg('sysclk',150)">150 MHz</button><button data-v="200" onclick="cfg('sysclk',200)">200 MHz</button><button data-v="250" onclick="cfg('sysclk',250)">250 MHz</button><button data-v="300" onclick="cfg('sysclk',300)">300 MHz</button></span></div>
+<div class="meta">次の起動から有効になります。起動に失敗した場合は自動で 150 MHz に戻ります。</div>
+<div class="segrow" style="margin-top:14px"><span class="lbl">メインメモリ</span><span class="seg small" id="segram"><button data-v="64" onclick="cfg('ram',64)">64 KB</button><button data-v="256" onclick="cfg('ram',256)">256 KB</button><button data-v="512" onclick="cfg('ram',512)">512 KB</button><button data-v="1024" onclick="cfg('ram',1024)">1024 KB</button></span></div>
+<div class="meta">メモリマッパの容量です。DOS2 や RAM ディスクなどで使えます。次の起動から有効になります。</div>
+</details></div>
+<div class="card" style="margin:0"><h2>ドライブ設定</h2>
+<div id="fdcfg"></div>
+<div class="meta" style="margin-top:12px"><span class="tag virt sm">仮想</span>に設定したドライブには SD カードのディスクイメージをマウントできます。<span class="tag phys sm">内蔵</span>は 1 台につきいずれかのドライブ 1 台にのみ割り当てられます。<br><span style="display:block;height:8px"></span>FDC が WD2793 の場合、内蔵ドライブに関する設定もできます。内蔵ドライブの A と B を両方「なし」にすると内蔵ディスク ROM ごと無効になり、メモリが約 1.6 KB 空きます。ゲームなどを Nextor から起動したい場合で、メモリが不足する場合に使用します。</div></div></div>
+<div class="card" style="flex:0 1 220px;margin:10px 0 0"><h2>システム設定</h2>
+<button onclick="nameDlg()" title="Web UI や近くの機器一覧に表示される名前を設定します" style="display:block;width:100%;margin:6px 0">ホスト名を設定</button>
+<button onclick="locDlg()" title="基板の LED を点灯させます" style="display:block;width:100%;margin:6px 0">この機器を探す</button>
+<button onclick="rebootDlg()" title="vz80 を再起動し、MSX を BIOS から起動し直します" style="display:block;width:100%;margin:6px 0">MSX を再起動</button><div id="restartnote" class="meta" style="display:none;color:#ffb0a0;text-align:left;margin:5px 0 6px">再起動が必要です<br>（変更は再起動後に反映されます）</div></div>
+</div>
+<div class="card"><h2>ドライブ</h2><div id="fdd"></div></div>
+<div class="card"><h2>スロット</h2><div id="slots"></div></div>
+<div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center">画面 <span style="display:flex;align-items:center;gap:8px"><span class="meta" id="scrinfo" style="margin:0"></span><button id="savepng2" onclick="savePng(2)" class="ico" style="display:none" title="縦 2 倍で PNG を保存（512 ドットのモードはピクセルが縦長なので、縦を 2 倍にすると正しい縦横比になります）" aria-label="縦 2 倍で PNG を保存"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="10" rx="1"/><path d="M20 3v18"/><polyline points="17 6 20 3 23 6"/><polyline points="17 18 20 21 23 18"/></svg></button><button onclick="savePng()" class="ico" title="画面を PNG で保存" aria-label="PNG で保存"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M4 17v3h16v-3"/></svg></button></span></h2>
+<canvas id="scr" width="320" height="240"></canvas>
+<div style="display:flex;gap:6px;align-items:center;margin-top:12px"><input type="text" id="scrkey" placeholder="キーを送信" style="flex:1;min-width:0"><label class="chk" style="margin:0;white-space:nowrap"><input type="checkbox" id="scrent" checked> 最後に Enter を追加する</label><button onclick="sendKeys()">送信</button></div>
+<div class="segrow" style="margin-top:6px"><span class="lbl">更新</span><span class="seg" id="segfps"><button data-v="200" onclick="setFps(200)">5 fps</button><button data-v="500" onclick="setFps(500)">2 fps</button><button data-v="1000" onclick="setFps(1000)">1 fps</button><button data-v="0" onclick="setFps(0)">停止</button></span><button onclick="fullFrame()" title="VRAM 全体を取り直します">再取得</button><button onclick="snapshot()" title="CPU を一時停止して VDP から VRAM を読み戻します（VDP コマンドで描かれた内容も反映）">VRAM から描画</button></div>
+<div class="meta">CPU の書き込みと VDP コマンド（LINE/COPY 等）を追跡した VRAM の写しを映しています。ずれたときは「VRAM から描画」で VDP から読み直します。</div>
+</div>
+<div class="card">
+<h2 style="display:flex;justify-content:space-between;align-items:center">SDカードブラウザ <label class="chk" style="margin:0;font-weight:normal"><input type="checkbox" id="showall" onchange="ls()"> すべて表示</label></h2>
+<div id="crumb"></div>
+<div id="files" class="files"></div>
+<div style="display:flex;gap:10px;align-items:flex-start;margin-top:10px">
+<div id="dropzone" class="dropzone"><input type="file" id="up" multiple> <button onclick="upload()">アップロード</button><div class="meta">ここにファイルをドロップしてもアップロードできます</div></div>
+<span style="display:flex;flex-direction:column;gap:6px"><button onclick="newImgDlg()" style="white-space:nowrap;margin:0">イメージ作成</button><button onclick="mkdirDlg()" style="white-space:nowrap;margin:0">フォルダ作成</button><button onclick="cacheDlg()" style="white-space:nowrap;margin:0" title="キャッシュに取り込んであるイメージの一覧と削除">キャッシュ</button></span>
+</div>
+<div class="meta" style="margin-top:8px">ディスクイメージ (.dsk / .hdd) や ROM イメージ (.rom) をクリックするとマウント先を選べます。マウントしたイメージは基板のキャッシュに取り込まれ（名前の横の青い点）、仮想ドライブへの書き込みは SD カードのファイルに書き戻されます。</div>
+</div>
+<div class="card"><h2>ファームウェア</h2>
+<div class="meta" id="fwinfo">パッケージ (.vzp) を選んでください</div>
+<p><input type="file" id="fwfile" accept=".vzp" onchange="fwPick()">
+<button class="warn" id="fwapply" onclick="fwApply()" disabled>適用+再起動</button></p>
+<div id="trial" style="display:none;margin:8px 0;padding:10px;border:1px solid #d9a441;border-radius:6px"><div id="trialtxt" style="margin-bottom:8px"></div>
+<div style="display:flex;gap:8px"><button class="warn" onclick="promote()">昇格（この版に確定）</button><button onclick="rollback()">元に戻す</button></div></div>
+<div class="meta">更新後は MSX がリセットされ、新しい版が「テスト起動」で起動します。問題なく 20 秒動けば自動で確定します（「昇格」で今すぐ確定、「元に戻す」や電源の入れ直しで元の版に戻ります）。</div>
+</div>
+<div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center">近くの機器 <button onclick="peersPoll(true)" class="ico" title="再スキャン" aria-label="再スキャン"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><polyline points="20 4 20 10 14 10"/></svg></button></h2>
+<div id="near" class="meta">(検索中...)</div></div>
+<div class="card"><h2>コンソール</h2>
+<div id="con"></div>
+<div style="display:flex;gap:6px"><input type="text" id="cmdline" style="flex:1" placeholder="コマンド (help)"><button onclick="sendCmd()">送信</button></div>
+</div>
+</main>
+<div id="msg"></div>
+<div id="namemodal" class="modal"><div class="pickbox"><div style="display:flex;justify-content:space-between;align-items:center"><h2>ホスト名を設定</h2><button class="x" onclick="hide('namemodal')">&times;</button></div>
+<div class="meta" style="margin:8px 0 4px">Web UI のヘッダと、近くの機器(vhd68/vfd68/vmpu68)の一覧に表示される名前です。31 バイトまで(日本語は 1 文字 3 バイト)。</div>
+<input type="text" id="namein" maxlength="31" placeholder="MSX" style="width:100%;box-sizing:border-box" onkeydown="if(event.key==='Enter')nameSave();if(event.key==='Escape')hide('namemodal')">
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="hide('namemodal')">キャンセル</button><button onclick="nameSave()">設定</button></div></div></div>
+<div id="locmodal" class="modal"><div class="pickbox"><div style="display:flex;justify-content:space-between;align-items:center"><h2>この機器を探す</h2><button class="x" onclick="hide('locmodal')">&times;</button></div>
+<div style="margin:12px 0 4px">vz80 の LED を白に点灯させます(10 秒間)。</div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="hide('locmodal')">キャンセル</button><button onclick="locGo()">OK</button></div></div></div>
+<div id="rebootmodal" class="modal"><div class="pickbox"><div style="display:flex;justify-content:space-between;align-items:center"><h2>MSX を再起動</h2><button class="x" onclick="hide('rebootmodal')">&times;</button></div>
+<div style="margin:12px 0 4px">vz80 (RP2350) を再起動し、MSX を BIOS から起動し直します。実行中のプログラムは失われます。</div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="hide('rebootmodal')">キャンセル</button><button class="warn" onclick="rebootGo()">再起動</button></div></div></div>
+<div id="pickmodal" class="modal"></div>
+<div id="viewmodal" class="modal"></div>
+<div id="askmodal" class="modal"></div>
+<div id="ctxmenu"></div>
+<div id="progmodal" class="modal"><div class="pickbox"><div style="display:flex;justify-content:space-between;align-items:center"><h2>ファームウェア更新</h2><button class="x" id="progx" onclick="hide('progmodal')" disabled>&times;</button></div><div id="progbar"><div id="progfill"></div></div><div id="proglog"></div></div></div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+if(location.hash.includes('&details'))addEventListener('DOMContentLoaded',()=>document.querySelectorAll('details').forEach(d=>d.open=true));
+if(location.hash.includes('&overflow'))setTimeout(()=>{const W=document.documentElement.clientWidth;const out=[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>W+1).map(e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.className&&typeof e.className==='string'?'.'+e.className.split(' ').slice(0,2).join('.'):'')+':'+Math.round(e.getBoundingClientRect().right-W));const c=document.querySelector('#con');c.textContent='vw='+W+' iw='+innerWidth+' dpr='+devicePixelRatio+' mq480='+matchMedia('(max-width:480px)').matches+' main='+Math.round(document.querySelector('main').getBoundingClientRect().width)+' scrollW='+document.documentElement.scrollWidth+'\n'+out.slice(0,40).join('\n')},6000);   // screenshot tests: hold the load event so the dialog is open when Chrome captures
+
+function msg(t){const m=$('#msg');t=String(t).trim();const err=/^(err\b|error\b|failed\b|失敗|取得失敗)/i.test(t);if(err)t=t.replace(/^err:?\s*/i,'');   // server replies start with "err ": show them red without the prefix
+ m.textContent=t;m.classList.toggle('err',err);m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',err||t.length>40?6000:2500)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hex=(v,n)=>(v>>>0).toString(16).toUpperCase().padStart(n,'0');
+const fmtUp=s=>{s=Number(s)||0;return s>=3600?Math.floor(s/3600)+'h'+Math.floor(s%3600/60)+'m':s>=60?Math.floor(s/60)+'m'+s%60+'s':s+'s'};
+const show=id=>$('#'+id).style.display='flex', hide=id=>$('#'+id).style.display='none';
+// The ESP32 has ~35 KB of free heap: every parallel browser connection pins a few KB, so all
+// same-origin requests go through one queue (one connection at a time, body fully read before the next).
+let reqChain=Promise.resolve();
+function serial(fn){const p=reqChain.then(fn,fn);reqChain=p.then(()=>{},()=>{});return p}
+const rawFetch=window.fetch.bind(window);
+window.fetch=(u,o)=>typeof u==='string'&&u.startsWith('/')?serial(async()=>{const r=await rawFetch(u,o);const b=await r.arrayBuffer();return new Response(b,{status:r.status,statusText:r.statusText,headers:r.headers})}):rawFetch(u,o);
+async function api(c){const r=await fetch('/api/cmd',{method:'POST',body:c});return await r.text()}
+// ---- SD card / cache / mounts ---------------------------------------------------------------
+const TN={0:'自動判別',1:'プレーン',2:'ASCII 8K',3:'ASCII 16K',4:'コナミ',5:'コナミ SCC',9:'ディスク'};
+const IC_FD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 4v5h7V4"/><rect x="8" y="14" width="8" height="6"/></svg>';
+const IC_ROM='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v13l-2 5H8l-2-5z"/><path d="M9 7h6M9 11h6"/></svg>';
+const IC_DIR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></svg>';
+let cwd='/', sdBusy=false, sdRows=[], cat={entries:[]}, fdst={drives:[]}, cartst={slots:[]}, smap={slots:[]}, stale=false;
+const join=(d,n)=>(d==='/'?'':d)+'/'+n, base=p=>p.split('/').pop(), dirOf=p=>p.replace(/\/[^/]*$/,'')||'/';
+const num=n=>(+n||0).toLocaleString('en-US'), enc=encodeURIComponent;
+const isDsk=n=>/\.(dsk|dim|dimg|hdd)$/i.test(n), isRom=n=>/\.(rom|mx1|mx2|bin)$/i.test(n), isImg=n=>isDsk(n)||isRom(n);
+const isHdd=(n,size)=>/\.hdd$/i.test(n)||(isDsk(n)&&size>737280);   // hard disk image: .hdd, or a disk image bigger than a 2DD floppy
+const IC_HD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M12 12l3-2"/><path d="M17 16h1"/></svg>';
+const textish=n=>/\.(txt|cfg|bat|ini|log|md|asm|inc|c|h|csv|json|htm|html)$/i.test(n);
+const segS=(id,v)=>document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+const cached=p=>cat.entries.find(e=>e.path===p);
+const entName=i=>{const e=cat.entries.find(x=>x.i===i);return e?base(e.path):'#'+i};
+const entKind=i=>{const e=cat.entries.find(x=>x.i===i);return e?(e.size===737280?'2DD':e.size===368640?'1DD':e.tname==='hdd'?(e.size/1048576).toFixed(0)+' MB':(e.size/1024|0)+' KB'):''};
+function mountedAt(p){const e=cached(p);if(!e)return[];const r=[];fdst.drives.forEach(d=>{if(d.shelf===e.i)r.push(driveLetter(d.drive))});cartst.slots.forEach(x=>{if(x.set&&x.shelf===e.i)r.push(String(x.slot))});return r}
+async function post(url){const r=await fetch(url,{method:'POST'});return(await r.text()).trim()}
+async function refreshState(){try{cat=JSON.parse(await api('shelf'));fdst=JSON.parse(await api('fd'));cartst=JSON.parse(await api('cart'));smap=JSON.parse(await api('slotmap'))}catch(e){}renderFdd();renderSlots()}
+const INFO_KEYS=['ファームウェア','基板バージョン','RP2350','ホスト名','SD カード','Wi-Fi MACアドレス','IPアドレス'],INFO2_KEYS=['RAM','VRAM','FDC','クロック周波数','稼働時間'];
+function infoPlaceholder(){if(!$('#info').innerHTML)$('#info').innerHTML=INFO_KEYS.map(k=>'<span>'+k+'</span><span class="dim">…</span>').join('');if(!$('#info2').innerHTML)$('#info2').innerHTML=INFO2_KEYS.map(k=>'<span>'+k+'</span><span class="dim">…</span>').join('')}
+function setStale(on,txt){stale=on;document.body.classList.toggle('stale',on);const b=$('#offline');b.style.display=on?'block':'none';if(on)b.textContent=txt}
+const MODE_TAG={physical:'<span class="tag phys">内蔵</span>',physical2:'<span class="tag phys">内蔵2</span>',virtual:'<span class="tag virt">仮想</span>',none:'<span class="tag none">なし</span>'};
+const two=()=>fdst.phys_drives>=2, modeKey=d=>d.mode==='physical'&&d.hw===1?'physical2':d.mode;
+const kindTag=d=>d.kind==='hdd'?'<span class="tag hdd">仮想HDD</span>':d.kind==='fdd'?'<span class="tag virt">仮想FDD</span>':two()&&d.mode==='physical'?'<span class="tag phys">内蔵'+(d.hw+1)+'</span>':d.mode==='virtual'?'<span class="tag virt">仮想FDD</span>':MODE_TAG[d.mode];
+const modeTag=kindTag;
+const intUnits=()=>fdst.drives.filter(d=>!d.kind), rowUnits=()=>fdst.drives.filter(d=>d.kind);
+const NONE='<span class="dim">なし</span>';
+const slotId=(p,sub)=>{const sl=smap.slots.find(x=>x.p===p);return sl&&sl.exp?(0x80|p|(sub<<2)):p};
+const cartAtSlot=id=>cartst.slots.find(x=>x.set&&slotId(x.p,x.s)===id);
+// Drives as the MSX sees them, from the BIOS's DRVTBL: [{letter, internal, unit, cart, slot}] or null before the disk ROMs ran
+function msxDrives(){
+ const t=fdst.drvtbl;if(!t||!t.length||fdst.diskrom===undefined)return null;
+ let total=0;for(const [n] of t){if(n>8)return null;total+=n}if(!total||total>8)return null;
+ const out=[];let L=0;
+ for(const [n,slot] of t){if(!n)continue;const internal=slot===fdst.diskrom,cart=internal?null:cartAtSlot(slot);
+  for(let i=0;i<n;i++)out.push({letter:String.fromCharCode(65+L++),internal,unit:i,cart,slot})}
+ return out;
+}
+// Is a Nextor (external disk ROM) there: registered in DRVTBL now, or mounted in a slot for the next start
+const nextorCart=()=>cartst.slots.find(x=>x.set&&/nextor/i.test(entName(x.shelf)));
+function nextorPresent(){const md=msxDrives();return !!((md&&md.some(r=>!r.internal))||nextorCart())}
+function fdSeg(u){const d='AB'[u],t=two();return '<span class="seg" id="segfd'+d+'"><button data-v="physical" onclick="fdMode(\''+d+'\',\'physical\')">'+(t?'内蔵1':'内蔵')+'</button>'+(t?'<button data-v="physical2" onclick="fdMode(\''+d+'\',\'physical2\')">内蔵2</button>':'')+'<button data-v="virtual" onclick="fdMode(\''+d+'\',\'virtual\')">仮想</button><button data-v="none" onclick="fdMode(\''+d+'\',\'none\')">なし</button></span>'}
+// Rows shared by the drive settings and the drive card, in MSX letter order: the Nextor rows (kind fdd /
+// hdd, unit = row index) then the internal disk ROM's drives (kind internal, unit 0/1). Letters come from
+// DRVTBL while it matches the configuration; once rows were added, removed or reordered (restart pending)
+// they are predicted: rows first (Nextor comes before the internal ROM), internal drives after them.
+function fdRows(){
+ const md=msxDrives(),rows=[],rw=rowUnits(),nx=nextorPresent();
+ const ext=md?md.filter(r=>!r.internal):[],ints=md?md.filter(r=>r.internal):[];
+ const live=md&&!fdst.restart&&ext.length===rw.length;
+ const sub=r=>{const c=r&&r.cart;return c?entName(c.shelf):(nextorCart()?entName(nextorCart().shelf):'Nextor')};
+ let L=0;
+ if(nx)rw.forEach((d,i)=>{const r=live?ext[i]:null;rows.push({letter:r?r.letter:String.fromCharCode(65+L),kind:d.kind,unit:i,cell:r&&r.cart?String(r.cart.slot):(nextorCart()?String(nextorCart().slot):null),sub:sub(r)});L++});
+ const hideUnseen=!!(md&&fdst.ext_master&&fdst.int_count===1);   // Nextor first and the disk ROM registered one drive: its second unit stays out of sight
+ const start=(!md||fdst.ext_master||!ints.length)?L:0;   // predicted: the internal ROM's drives follow the rows (Nextor is the master disk ROM)
+ [0,1].forEach(u=>{const r=ints.find(x=>x.unit===u);if(!intUnits()[u])return;if(!r&&hideUnseen)return;
+  rows.push({letter:r&&live?r.letter:(md&&!r)?'—':String.fromCharCode(65+start+u),kind:'internal',unit:u,sub:fdst.fdc||''})});
+ return rows;
+}
+const rowUnit=r=>r.kind==='internal'?intUnits()[r.unit]:rowUnits()[r.unit];
+function driveLetter(drive){const r=fdRows().find(x=>{const d=rowUnit(x);return d&&d.drive===drive});return r?r.letter:drive}
+function renderFdd(){
+ const rows=fdRows(),nx=nextorPresent(),rw=rowUnits();
+ let cfg='';
+ if(nx){
+  cfg+='<div id="vrows">'+rows.filter(r=>r.kind!=='internal').map(r=>{const d=rowUnit(r);return '<div class="segrow vrow" data-i="'+r.unit+'"><span class="grip" title="ドラッグで並べ替え">≡</span><span class="lbl" style="min-width:86px;margin-right:8px">ドライブ '+esc(r.letter)+'</span>'+kindTag(d)+'<small class="dim" style="margin-left:14px;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.sub)+'</small><button onclick="vdDel('+(r.unit+1)+',\''+esc(r.letter)+'\',\''+esc(r.cell||'')+'\')" style="margin-left:10px;padding:2px 9px;font-size:12px">削除</button></div>'}).join('')+'</div>';
+ }
+ // the add buttons are always there: without a Nextor, the first one inserts nextor-vz80.rom (slot choice)
+ cfg+='<div style="margin:'+(nx?'6px':'2px')+' 0 10px"><button onclick="vdAdd(\'fdd\')"'+(!nx||(fdst.fdd_free>0&&rw.length<fdst.vd_max)?'':' disabled')+' title="仮想フロッピーのドライブを足します（内蔵の仮想と合わせて 4 台まで）">仮想 FDD を追加</button><button onclick="vdAdd(\'hdd\')"'+(!nx||(fdst.hdd_free>0&&rw.length<fdst.vd_max)?'':' disabled')+' title="仮想ハードディスクのドライブを足します（48 MB まで、2 台まで）">仮想 HDD を追加</button></div>';
+ cfg+=rows.filter(r=>r.kind==='internal').map(r=>'<div class="segrow"><span class="lbl" style="min-width:104px;margin-right:8px">ドライブ '+esc(r.letter)+'</span>'+fdSeg(r.unit)+'<small class="dim" style="margin-left:14px">'+esc(r.sub)+'</small></div>').join('');
+ $('#fdcfg').innerHTML=cfg;if(nx)initDrag();
+ const exists=r=>{const d=rowUnit(r);return d&&r.letter!=='—'&&!(r.kind==='internal'&&d.mode==='none')};
+ $('#fdd').innerHTML=rows.filter(exists).map(r=>{const d=rowUnit(r);const ok=r.kind!=='internal'||d.mode==='virtual';
+  let h='<div class="drv"><span><div style="display:block"><span class="lbl" style="margin:0 8px 0 0">ドライブ '+esc(r.letter)+'</span>'+kindTag(d);
+  if(ok)h+=d.shelf>=0?'<span class="cur">'+esc(entName(d.shelf))+'</span> <small>'+entKind(d.shelf)+(d.wp?' · 書込禁止':'')+'</small>':NONE;
+  h+='</div></span><span>'+(ok&&d.shelf>=0?'<button onclick="eject(\''+d.drive+'\')">アンマウント</button>':'')+(ok?'<button class="more" onclick="fddMenu(event,\''+d.drive+'\',\''+esc(r.letter)+'\')" title="メニュー">…</button>':'')+'</span></div>';return h}).join('')||['A','B'].map(d=>'<div class="drv"><span><span class="lbl">ドライブ '+d+'</span><span class="dim">…</span></span><span></span></div>').join('');
+ intUnits().forEach(d=>segS('segfd'+d.drive,modeKey(d)));
+}
+// ---- Nextor rows: add / delete / drag to reorder ----
+async function vdAdd(kind){if(!nextorPresent()){addVdrv(kind);return}run(null,async()=>{const r=await post('/api/vd?op=add&arg='+kind);return r.startsWith('ok')?'仮想 '+kind.toUpperCase()+' のドライブを追加しました。ドライブ文字は次の起動から反映されます':r})}
+async function vdDel(i,letter,cell){const d=rowUnits()[i-1];
+ if(rowUnits().length<=1){const x=cell&&cartst.slots.find(s=>String(s.slot)===String(cell));const name=x?entName(x.shelf):base(NEXTOR_PATH);if(!await ask('ドライブを削除',esc(name)+' をアンマウントします。次の起動から反映されます。','アンマウント',true))return;if(cell)eject(cell);return}   // the last drive: Nextor itself goes
+ if(!await ask('ドライブを削除','ドライブ '+esc(letter)+'（'+(d&&d.kind==='hdd'?'仮想 HDD':'仮想 FDD')+'）を削除します。次の起動から反映されます。','削除',true))return;run(null,()=>post('/api/vd?op=del&arg='+i))}
+function initDrag(){
+ const box=$('#vrows');if(!box)return;let drag=null,rows=null;
+ box.querySelectorAll('.grip').forEach(g=>g.addEventListener('pointerdown',e=>{drag=g.closest('.vrow');rows=[...box.children];drag.classList.add('drag');g.setPointerCapture(e.pointerId);e.preventDefault()}));
+ box.addEventListener('pointermove',e=>{if(!drag)return;const y=e.clientY;let over=null;for(const r of box.children){const b=r.getBoundingClientRect();if(y<b.top+b.height/2){over=r;break}}
+  box.querySelectorAll('.vrow').forEach(r=>r.classList.remove('over'));if(over&&over!==drag)over.classList.add('over');else if(!over)box.lastElementChild.classList.add('over');
+  if(over!==drag){if(over)box.insertBefore(drag,over);else box.appendChild(drag)}});
+ const done=async e=>{if(!drag)return;drag.classList.remove('drag');box.querySelectorAll('.vrow').forEach(r=>r.classList.remove('over'));const order=[...box.children].map(r=>+r.dataset.i+1);drag=null;
+  if(order.join()===rows.map(r=>+r.dataset.i+1).join())return;run(null,async()=>{const r=await post('/api/vd?op=order&arg='+order.join(','));return r.startsWith('ok')?'並べ替えました。ドライブ文字は次の起動から反映されます':r})};
+ box.addEventListener('pointerup',done);box.addEventListener('pointercancel',done);
+}
+const KIND={bios:['MAIN ROM','sys'],basic:['MAIN ROM','sys'],sub:['SUB ROM','sys'],kanji:['漢字 ROM','sys'],disk:['ディスク ROM','sys'],fm:['MSX-MUSIC','sys'],je:['MSX-JE','sys'],ram:['RAM','ram'],rom:['ROM','phys'],data:['ROM','phys'],zeros:['?','unk'],unknown:['?','unk'],empty:['','empty']};
+function cellName(sl,sub){return sl.exp?sl.p+'-'+sub.s:String(sl.p)}
+function slotRows(){const r=[];smap.slots.forEach(sl=>sl.subs.forEach(sub=>r.push({cell:cellName(sl,sub),p:sl.p,s:sub.s,pages:sub.pages,phys:sl.p===1||sl.p===2})));return r}
+function renderSlots(){
+ const rows=slotRows(),ADDR=['0000h','4000h','8000h','C000h'];
+ let h='<div class="smap"><div class="hdr"><div class="rl"></div>'+[0,1,2,3].map(i=>'<div class="cell">ページ '+i+'<small>'+ADDR[i]+'〜</small></div>').join('')+'</div>';
+ if(!rows.length){h+=['1','2'].map(c=>'<div class="row"><div class="rl">スロット '+c+'</div>'+'<div class="cell unk">…</div>'.repeat(4)+'</div>').join('')}
+ rows.forEach(r=>{h+='<div class="row"><div class="rl">'+esc(r.cell)+(r.phys?'<small>カートリッジ</small>':'')+'</div>';
+  for(let pg=0;pg<4;pg++){const c=r.pages[pg];
+   if(c.k==='cart'){let n=1;while(pg+n<4&&r.pages[pg+n].k==='cart'&&r.pages[pg+n].shelf===c.shelf)n++;
+    h+='<div class="cell cart" style="flex:'+n+' 1 '+((n-1)*5)+'px" title="'+esc(entName(c.shelf))+'"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(entName(c.shelf))+'</span><span class="sub">'+TN[c.type]+' · '+pageBadges([...Array(n)].map((_,k)=>pg+k))+'<button onclick="ejectCart(\''+r.cell+'\')">アンマウント</button></span></div>';pg+=n-1;continue}
+   const [t,cls]=KIND[c.k]||['?','unk'];
+   if(c.k==='empty')h+=pg<3?'<div class="cell empty"><button title="スロット '+r.cell+' のページ '+pg+' に ROM をマウント" onclick="cellPick(\''+r.cell+'\','+pg+')">＋</button></div>':'<div class="cell empty" title="ページ 3 の ROM は BIOS が見つけないので置けません"><span class="sub">空き</span></div>';
+   else{const same=k=>k===c.k||(c.k==='bios'&&k==='basic');let n=1;while(pg+n<4&&same(r.pages[pg+n].k))n++;
+    h+='<div class="cell '+cls+'" style="flex:'+n+' 1 '+((n-1)*5)+'px"><span>'+(r.phys&&cls==='phys'?'カートリッジ':t)+'</span><span class="sub">'+(c.k==='je'?'内蔵 ROM':cls==='sys'?'内蔵 ROM（シャドウ）':cls==='ram'?'メインメモリ（シャドウ）':cls==='phys'?(r.phys?'実物':'内蔵 ROM'):'')+'</span></div>';pg+=n-1}}
+  h+='</div>'});
+ h+='</div><div class="meta" style="margin-top:8px">空き（＋）に ROM をマウントできます。ROM が使うページは ROM 側で決まっていて（多くは 1〜2）、そのページが空いている段が選べます。マウントとアンマウントは再起動後に反映されます。</div>';
+ $('#slots').innerHTML=h;
+}
+function freeRows(){return slotRows().map(r=>({cell:r.cell,phys:r.phys,free:[0,1,2,3].filter(i=>r.pages[i].k==='empty')})).filter(r=>r.free.includes(1)||r.free.includes(2))}
+// Pages a ROM takes (bit n = page n), the rule of cart.c pages_for: MegaROMs (or any ROM over 32 KB with
+// "auto") sit in pages 1-2; a plain ROM is placed from the page its AB header's INIT address points to.
+function romPages(size,h0,h1,type){type=+type||0;if(type!==1&&(type!==0||size>0x8000))return 6;
+ const ab=h0.slice(0,4)==='4142',init=ab?parseInt(h0.slice(4,6),16)|parseInt(h0.slice(6,8),16)<<8:0;
+ let b=size>0x8000?0:(init>=0x8000&&size<=0x4000)?2:1;if(size<=0x8000&&h1==='4142'&&!ab)b=0;
+ let p=0;for(let i=0;i<Math.ceil(size/0x4000)&&b+i<4;i++)p|=1<<(b+i);return p}
+const pageList=p=>[0,1,2,3].filter(i=>p>>i&1), pageBadges=l=>'ページ'+l.map(i=>'<span class="pg">'+i+'</span>').join(''), pageText=p=>{const l=pageList(p);return l.length?pageBadges(l):'?'};
+const rowsFor=p=>freeRows().filter(r=>pageList(p).every(i=>r.free.includes(i)));
+function cellPick(cell,pg){cellBrowse(cell,cwd)}
+// "+" in the slot table: browse the SD card (folders and ROM files only) and mount the chosen ROM into this cell.
+async function cellBrowse(cell,dir){
+ const row=freeRows().find(r=>r.cell===cell),free=row?row.free:[];
+ let d=null;try{d=await(await fetch('/api/sd?path='+enc(dir),{cache:'no-store'})).json()}catch(e){}
+ let h='<div class="viewbox">'+hdr('スロット '+esc(cell)+' にマウント','pickClose()')+'<div class="meta" style="margin:8px 0 4px">SD カードの ROM を選びます。この段の空きページ: '+pageBadges(free)+'</div>';
+ if(!d||!d.ok){h+='<div class="meta">'+esc((d&&d.err)||'SD カードがありません')+'</div></div>';pick(h);return}
+ const parts=dir.split('/').filter(Boolean);let bc='<a onclick="cellBrowse(\''+cell+'\',\'/\')">SD</a>',acc='';
+ parts.forEach((x,i)=>{acc+='/'+x;bc+=' / '+(i===parts.length-1?'<b>'+esc(x)+'</b>':'<a onclick="cellBrowse(\''+cell+'\',\''+esc(acc)+'\')">'+esc(x)+'</a>')});
+ h+='<div class="meta" style="color:#cfc;margin:0 0 4px">'+bc+'</div><div class="body files">';
+ const rows=(d.entries||[]).filter(e=>!e.n.startsWith('.')&&(e.d||isRom(e.n))).sort((a,b)=>(b.d|0)-(a.d|0)||a.n.toLowerCase().localeCompare(b.n.toLowerCase()));
+ if(dir!=='/')h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="cellBrowse(\''+cell+'\',\''+esc(dirOf(dir))+'\')">../</span></span><span></span></div>';
+ if(!rows.length)h+='<div class="meta">このフォルダに ROM はありません。</div>';
+ rows.forEach(e=>{const p=join(dir,e.n);
+  if(e.d){h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="cellBrowse(\''+cell+'\',\''+esc(p)+'\')">'+esc(e.n)+'/</span></span><span></span></div>';return}
+  const c=cached(p),m=mountedAt(p);
+  h+='<div class="row"><span class="fn"><span class="ic'+(c?' cached':'')+'"'+(c?' title="キャッシュ済み"':'')+'>'+IC_ROM+'</span><span class="txt" onclick="cellRom(\''+esc(p)+'\','+e.s+',\''+cell+'\')">'+esc(e.n)+'</span></span><span><small>'+num(e.s)+'</small>'+(m.length?' <small class="dim">マウント中: '+esc(m.join(', '))+'</small>':'')+'</span></div>'});
+ h+='</div></div>';pick(h);
+}
+async function ls(){
+ await refreshState();
+ let d;try{d=await(await fetch('/api/sd?path='+enc(cwd),{cache:'no-store'})).json()}catch(e){$('#files').innerHTML='<div class=meta>接続できません</div>';return}
+ if(!d.ok){$('#files').innerHTML='<div class=meta>'+esc(d.err||'SD カードがありません')+'</div>';$('#crumb').innerHTML='';return}
+ const parts=cwd.split('/').filter(Boolean);let bc='<a onclick="cdTo(\'/\')">SD</a>',acc='';
+ parts.forEach((p,i)=>{acc+='/'+p;bc+=' / '+(i===parts.length-1?'<b>'+esc(p)+'</b>':'<a onclick="cdTo(\''+esc(acc)+'\')">'+esc(p)+'</a>')});
+ $('#crumb').innerHTML=bc;
+ const showall=$('#showall').checked;
+ sdRows=(d.entries||[]).filter(e=>showall||!e.n.startsWith('.')).sort((a,b)=>(b.d|0)-(a.d|0)||a.n.toLowerCase().localeCompare(b.n.toLowerCase()));
+ let h=cwd!=='/'?'<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="cdTo(\''+esc(dirOf(cwd))+'\')">../</span></span><span></span></div>':'';
+ sdRows.forEach((e,i)=>{
+  const p=join(cwd,e.n);
+  if(e.d){h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="cdTo(\''+esc(p)+'\')">'+esc(e.n)+'/</span></span><span><button onclick="rowMenu(event,'+i+')">…</button></span></div>';return}
+  const c=cached(p),m=mountedAt(p);
+  const ic='<span class="ic'+(c?' cached':'')+'"'+(c?' title="キャッシュ済み"':'')+'>'+(isHdd(e.n,e.s)?IC_HD:isDsk(e.n)?IC_FD:isRom(e.n)?IC_ROM:'')+'</span>';
+  const nm=isImg(e.n)?'<span class="txt" title="マウント" onclick="mountDlg('+i+')">'+esc(e.n)+'</span>':textish(e.n)?'<span class="txt" title="内容を表示" onclick="sdView(\''+esc(p)+'\')">'+esc(e.n)+'</span>':'<span>'+esc(e.n)+'</span>';
+  h+='<div class="row"><span class="fn">'+ic+nm+'</span><span>'+(m.length?'<span class="mnt">マウント中（'+m.join(', ')+'）</span>':'')+'<small>'+num(e.s)+'</small><button onclick="rowMenu(event,'+i+')">…</button></span></div>';
+ });
+ $('#files').innerHTML=h||'<div class=meta>（空のフォルダ）</div>';
+}
+function cdTo(p){cwd=p;ls()}
+// ---- dialogs ----
+// While any dialog is open the page must not scroll, and the scrollbar must not come and go (the layout
+// would jump): every modal's display toggle is watched and the body locked with a matching padding.
+// The padding is measured, not assumed: with scrollbar-gutter:stable (or overlay scrollbars) hiding the
+// overflow may not change the width at all, and a guessed 15 px would itself make the page jump.
+function lockScroll(on){const b=document.body.style,de=document.documentElement;if(on){if(b.overflow==='hidden')return;const before=de.clientWidth;b.paddingRight='';b.overflow='hidden';const d=de.clientWidth-before;b.paddingRight=d>0?d+'px':''}else{b.overflow='';b.paddingRight=''}}
+function syncLock(){lockScroll([...document.querySelectorAll('.modal')].some(m=>m.style.display==='flex'))}
+{const mo=new MutationObserver(syncLock);document.querySelectorAll('.modal').forEach(m=>mo.observe(m,{attributes:true,attributeFilter:['style']}))}
+function pick(html){const m=$('#pickmodal');m.innerHTML=html;m.style.display='flex'}
+function pickClose(){$('#pickmodal').style.display='none'}
+function viewClose(){$('#viewmodal').style.display='none'}
+const hdr=(t,close)=>'<div style="display:flex;justify-content:space-between;align-items:center"><h2>'+t+'</h2><button class="x" onclick="'+close+'">&times;</button></div>';
+function note(title,text){return new Promise(res=>{const m=$('#askmodal');m.innerHTML='<div class="pickbox">'+hdr(esc(title),'askDone(false)')+'<div style="margin:12px 0 4px;word-break:break-all">'+text+'</div><div style="display:flex;justify-content:flex-end;margin-top:10px"><button onclick="askDone(true)">閉じる</button></div></div>';m.style.display='flex';window._askRes=res})}
+function ask(title,text,ok,warn){return new Promise(res=>{const m=$('#askmodal');m.innerHTML='<div class="pickbox">'+hdr(esc(title),'askDone(false)')+'<div style="margin:12px 0 4px;word-break:break-all">'+text+'</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="askDone(false)">キャンセル</button><button class="'+(warn?'warn':'')+'" onclick="askDone(true)">'+esc(ok||'OK')+'</button></div></div>';m.style.display='flex';window._askRes=res})}
+function askDone(v){$('#askmodal').style.display='none';if(window._askRes){const r=window._askRes;window._askRes=null;r(v)}}
+function prompt2(title,text,def,ok,extra){return new Promise(res=>{const m=$('#askmodal');m.innerHTML='<div class="pickbox">'+hdr(esc(title),'askDone(null)')+'<div class="meta" style="margin:8px 0 4px">'+text+'</div><input type="text" id="askin" style="width:100%;box-sizing:border-box" onkeydown="if(event.key===\'Enter\')askDone(this.value);if(event.key===\'Escape\')askDone(null)">'+(extra||'')+'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="askDone(null)">キャンセル</button><button onclick="askDone($(\'#askin\').value)">'+esc(ok||'OK')+'</button></div></div>';m.style.display='flex';$('#askin').value=def||'';setTimeout(()=>{$('#askin').focus();$('#askin').select()},50);window._askRes=res})}
+function rowMenu(ev,i){
+ ev.stopPropagation();const e=sdRows[i],p=join(cwd,e.n),m=$('#ctxmenu');const c=cached(p),mt=mountedAt(p);let h='';
+ if(!e.d){
+  if(isImg(e.n))h+='<button onclick="mountDlg('+i+')">マウント…</button>';
+  if(isImg(e.n)&&!isRom(e.n)&&!isHdd(e.n,e.s))h+='<button onclick="imgBrowse(\''+esc(p)+'\')">ブラウズ</button>';
+  if(isHdd(e.n,e.s)&&!mt.length)h+='<button onclick="resizeDlg(\''+esc(p)+'\','+e.s+')">サイズ変更…</button>';
+  if(textish(e.n))h+='<button onclick="sdView(\''+esc(p)+'\')">表示</button>';
+  h+='<a href="/api/file?path='+enc(p)+'" download="'+esc(e.n)+'"><button>ダウンロード</button></a>';
+  if(!mt.length)h+='<button onclick="renameAsk(\''+esc(p)+'\')">名前を変更…</button>';
+  if(isImg(e.n)&&!mt.length)h+=c?'<button onclick="cacheOp(\''+esc(p)+'\',0)">キャッシュから削除</button>':'<button onclick="cacheOp(\''+esc(p)+'\',1)">キャッシュする</button>';
+ }
+ if(mt.length)h+='<button onclick="eject(\''+mt[0]+'\')">アンマウント</button>';
+ else h+='<button onclick="mvDlg(\''+esc(p)+'\')">移動…</button><button class="warn" onclick="delAsk(\''+esc(p)+'\','+(e.d?1:0)+')">削除</button>';
+ m.innerHTML=h;m.style.display='block';m.style.left=Math.min(ev.clientX,innerWidth-190)+'px';m.style.top=Math.min(ev.clientY,innerHeight-200)+'px';
+}
+document.addEventListener('click',()=>{$('#ctxmenu').style.display='none'});
+$('#pickmodal').addEventListener('click',e=>{if(e.target===$('#pickmodal'))pickClose()});
+$('#viewmodal').addEventListener('click',e=>{if(e.target===$('#viewmodal'))viewClose()});
+// Esc, or a click on the dimmed backdrop, closes the topmost dialog (the firmware progress dialog is left alone).
+function dlgClose(id){if(id==='askmodal')askDone(null);else if(id==='viewmodal')viewClose();else if(id==='pickmodal')pickClose();else hide(id)}
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;for(const id of ['rebootmodal','locmodal','namemodal'])if($('#'+id).style.display==='flex'){hide(id);return}const cm=$('#ctxmenu');if(cm.style.display==='block'){cm.style.display='none';return}for(const id of ['askmodal','viewmodal','pickmodal'])if($('#'+id).style.display==='flex'){dlgClose(id);return}});
+for(const id of ['rebootmodal','locmodal','namemodal','askmodal','viewmodal','pickmodal']){const m=$('#'+id);let down=false;m.addEventListener('pointerdown',e=>{down=e.target===m});m.addEventListener('click',e=>{if(down&&e.target===m)dlgClose(id);down=false})}   // both press and release on the backdrop: a drag-select that ends outside the box must not close it
+async function run(label,fn){sdBusy=true;if(label)msg(label);try{const r=await fn();if(r!==undefined)msg(r)}catch(e){msg('失敗: '+e)}sdBusy=false;await ls();if($('#pickmodal').style.display==='flex'&&window._dlgRefresh)window._dlgRefresh()}
+async function cacheOp(p,on){if(on)waitDlg('キャッシュに取り込み中',esc(base(p))+' をキャッシュに取り込んでいます…');run(null,async()=>{try{return await post('/api/'+(on?'cache':'uncache')+'?path='+enc(p))}finally{if(on)pickClose()}})}
+async function renameAsk(p){const n=await prompt2('名前を変更',esc(base(p))+' の新しい名前',base(p),'変更');if(n===null)return;const nn=n.trim();if(!nn||nn===base(p))return;if(/[\/\\]/.test(nn)){msg('名前に / は使えません');return}run(null,()=>post('/api/mv?from='+enc(p)+'&to='+enc(join(dirOf(p),nn))))}
+async function delAsk(p,isdir){if(!await ask('削除',esc(base(p))+(isdir?' フォルダ':'')+' を SD カードから削除します。よろしいですか？','削除',true))return;run(null,()=>post('/api/rm?path='+enc(p)))}
+async function eject(t){run(null,()=>post('/api/eject?target='+t))}
+async function ejectCart(cell){const x=cartst.slots.find(s=>String(s.slot)===String(cell));const name=x?entName(x.shelf):'ROM';if(!await ask('アンマウント',esc(name)+' をアンマウントします。再起動後に反映されます。','アンマウント'))return;pickClose();eject(cell)}
+function waitDlg(title,text){pick('<div class="pickbox"><h2>'+esc(title)+'</h2><div style="margin:12px 0 4px;word-break:break-all;display:flex;align-items:center;gap:10px"><span class="spin"></span><span>'+text+'</span></div></div>')}
+async function mount(p,t,type){const restart=!/^(A|B|V\d)$/.test(t);if(restart&&!await ask('スロット '+t+' にマウント',esc(base(p))+' をスロット '+t+' にマウントします。再起動後に反映されます。','マウント'))return;pickClose();
+ const big=(sdRows.find(e=>join(cwd,e.n)===p)||{}).s>737280;
+ waitDlg('マウント中',esc(base(p))+' を '+(restart?'スロット '+t:'ドライブ '+driveLetter(t))+' にマウントしています。初回はキャッシュへの取り込みに'+(big?'数分（48 MB で 5 分ほど）':'数秒')+'かかります…');
+ run(null,async()=>{try{return await post('/api/mount?path='+enc(p)+'&target='+t+(type!==undefined?'&type='+type:''))}finally{pickClose()}})}
+const NEXTOR_PATH='/vz80/nextor-vz80.rom';
+async function addVdrv(kind){
+ let have=false;try{const d=await(await fetch('/api/sd?path='+enc('/vz80'),{cache:'no-store'})).json();have=!!(d.ok&&(d.entries||[]).some(e=>!e.d&&e.n.toLowerCase()==='nextor-vz80.rom'))}catch(e){}
+ if(!have){pick('<div class="pickbox">'+hdr('仮想ドライブを追加する','pickClose()')+'<div class="meta" style="margin:10px 0 4px;line-height:1.6">SD カードの vz80 フォルダに nextor-vz80.rom を置くと仮想ドライブを追加できます。</div><div style="display:flex;justify-content:flex-end;margin-top:10px"><button onclick="pickClose()">閉じる</button></div></div>');return}
+ const fr=freeRows().filter(r=>r.free.includes(1)&&r.free.includes(2));   // Nextor lives in pages 1-2
+ let h='<div class="pickbox">'+hdr('仮想ドライブを追加する','pickClose()')+'<div class="meta" style="margin:8px 0 4px">nextor-vz80.rom を挿すスロットを選んでください（再起動後に反映されます）。空いているスロットのうち、先の番号ほど内蔵ドライブより前の文字になります。</div>';
+ if(!fr.length)h+='<div class="meta">空いているスロットがありません。</div>';
+ fr.forEach(r=>{h+='<div class="drv"><span><span class="lbl">スロット '+esc(r.cell)+'</span><small class="dim">'+(r.phys?'カートリッジ · ':'')+'空き: '+pageBadges(r.free)+'</small></span><span><button style="white-space:nowrap" onclick="addVdrvGo(\''+r.cell+'\',\''+(kind||'')+'\')">マウント</button></span></div>'});
+ h+='</div>';pick(h);
+}
+// Insert the Nextor ROM in that cell; a hard disk was asked for: add its drive too (the ROM comes with two floppy drives)
+async function addVdrvGo(cell,kind){pickClose();waitDlg('マウント中',base(NEXTOR_PATH)+' をスロット '+cell+' にマウントしています…');
+ run(null,async()=>{try{const r=await post('/api/mount?path='+enc(NEXTOR_PATH)+'&target='+cell);if(!r.startsWith('ok'))return r;if(kind==='hdd'){const r2=await post('/api/vd?op=add&arg=hdd');if(!r2.startsWith('ok'))return r2}return 'Nextor をスロット '+cell+' にマウントしました。再起動後に反映されます'}finally{pickClose()}})}
+function fddMenu(ev,drive,letter){
+ ev.stopPropagation();const m=$('#ctxmenu'),d=fdst.drives.find(x=>x.drive===drive);let h='';
+ if(d&&d.shelf>=0){h+='<button onclick="eject(\''+drive+'\')">アンマウント</button><button onclick="fdUnmountUncache(\''+drive+'\')">アンマウントしてキャッシュから削除</button>'}
+ fdRows().forEach(r=>{const o=rowUnit(r);if(!o||o.drive===drive||r.letter==='—')return;if(!(o.kind||o.mode==='virtual'))return;if((o.kind==='hdd')!==(d&&d.kind==='hdd'))return;if(o.shelf<0&&!(d&&d.shelf>=0))return;h+='<button onclick="fdSwap(\''+drive+'\',\''+o.drive+'\')">ドライブ '+esc(r.letter)+' と入れ替える</button>'});
+ h+='<button onclick="drvBrowse(\''+drive+'\',\''+letter+'\',cwd)">SD カードからマウントする…</button>';
+ m.innerHTML=h;m.style.display='block';m.style.left=Math.min(ev.clientX,innerWidth-260)+'px';m.style.top=Math.min(ev.clientY,innerHeight-200)+'px';
+}
+async function fdUnmountUncache(drive){const d=fdst.drives.find(x=>x.drive===drive);const e=d&&cat.entries.find(x=>x.i===d.shelf);if(!e)return;run(null,async()=>{const r=await post('/api/eject?target='+drive);if(!r.startsWith('ok'))return r;return await post('/api/uncache?path='+enc(e.path))})}
+async function fdSwap(a,b){run(null,()=>post('/api/fdswap?a='+a+'&b='+b))}
+// Drive mount: browse the SD card (folders and the images that fit this drive) and mount the chosen one.
+async function drvBrowse(drive,letter,dir){
+ const d0=fdst.drives.find(x=>x.drive===drive),hd=!!(d0&&d0.kind==='hdd');
+ let d=null;try{d=await(await fetch('/api/sd?path='+enc(dir),{cache:'no-store'})).json()}catch(e){}
+ let h='<div class="viewbox">'+hdr('ドライブ '+esc(letter)+' にマウント','pickClose()')+'<div class="meta" style="margin:8px 0 4px">SD カードの'+(hd?'ハードディスク':'フロッピー')+'イメージを選びます。</div>';
+ if(!d||!d.ok){h+='<div class="meta">'+esc((d&&d.err)||'SD カードがありません')+'</div></div>';pick(h);return}
+ const parts=dir.split('/').filter(Boolean);let bc='<a onclick="drvBrowse(\''+drive+'\',\''+letter+'\',\'/\')">SD</a>',acc='';
+ parts.forEach((x,i)=>{acc+='/'+x;bc+=' / '+(i===parts.length-1?'<b>'+esc(x)+'</b>':'<a onclick="drvBrowse(\''+drive+'\',\''+letter+'\',\''+esc(acc)+'\')">'+esc(x)+'</a>')});
+ h+='<div class="meta" style="color:#cfc;margin:0 0 4px">'+bc+'</div><div class="body files">';
+ const fits=e=>hd?isHdd(e.n,e.s):(isDsk(e.n)&&!isHdd(e.n,e.s));
+ const rows=(d.entries||[]).filter(e=>!e.n.startsWith('.')&&(e.d||fits(e))).sort((a,b)=>(b.d|0)-(a.d|0)||a.n.toLowerCase().localeCompare(b.n.toLowerCase()));
+ if(dir!=='/')h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="drvBrowse(\''+drive+'\',\''+letter+'\',\''+esc(dirOf(dir))+'\')">../</span></span><span></span></div>';
+ if(!rows.length)h+='<div class="meta">このフォルダに'+(hd?'ハードディスク':'フロッピー')+'イメージはありません。</div>';
+ rows.forEach(e=>{const p=join(dir,e.n);
+  if(e.d){h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="drvBrowse(\''+drive+'\',\''+letter+'\',\''+esc(p)+'\')">'+esc(e.n)+'/</span></span><span></span></div>';return}
+  const c=cached(p),m=mountedAt(p);
+  h+='<div class="row"><span class="fn"><span class="ic'+(c?' cached':'')+'"'+(c?' title="キャッシュ済み"':'')+'>'+(hd?IC_HD:IC_FD)+'</span><span class="txt" onclick="mount(\''+esc(p)+'\',\''+drive+'\')">'+esc(e.n)+'</span></span><span><small>'+num(e.s)+'</small>'+(m.length?' <small class="dim">マウント中: '+esc(m.join(', '))+'</small>':'')+'</span></div>'});
+ h+='</div></div>';pick(h);
+}
+async function fdMode(d,m){const cur=modeKey(fdst.drives.find(x=>x.drive===d)||{});if(cur===m)return;const cnt=m==='none'||cur==='none';const cmd=m==='physical2'?'physical 2':m==='physical'?'physical 1':m;run(null,async()=>{const r=(await api('fd '+d+' '+cmd)).trim();return r.startsWith('ok')?(cnt?'ドライブの数の変更は次の MSX 起動時から反映されます':'ドライブ '+driveLetter(d)+' を'+({physical:'内蔵',virtual:'仮想',none:'なし'})[m]+'にしました'):r})}
+// ---- SD text viewer / editor ----
+async function sdView(p){
+ const r=await fetch('/api/file?path='+enc(p),{cache:'no-store'});if(!r.ok){msg('読み込みに失敗しました');return}
+ const t=await r.text();if(t.length>262144){msg('ファイルが大きすぎます（256 KB まで）');return}
+ window._edCrlf=/\r\n/.test(t);window._edTxt=t.replace(/\x1A[\s\x1A]*$/,'');
+ const m=$('#viewmodal');m.innerHTML='<div class="viewbox">'+hdr(esc(base(p)),'viewClose()')+'<pre id="edpre"></pre><p style="margin:0"><button onclick="sdEdit(\''+esc(p)+'\')">編集</button></p></div>';$('#edpre').textContent=t;m.style.display='flex';lockScroll(true);
+}
+function sdEdit(p){const m=$('#viewmodal');m.innerHTML='<div class="viewbox wide">'+hdr(esc(base(p)),'viewClose()')+'<textarea id="edta"></textarea><p style="margin:0"><button onclick="sdSave(\''+esc(p)+'\')">保存</button> <button onclick="viewClose()">キャンセル</button></p></div>';$('#edta').value=window._edTxt}
+async function sdSave(p){let body=$('#edta').value;if(window._edCrlf)body=body.replace(/\r?\n/g,'\r\n');const r=await fetch('/api/file?path='+enc(p),{method:'POST',body:new Blob([body])});const t=(await r.text()).trim();msg(r.ok?'保存しました: '+base(p):t);if(r.ok)viewClose();ls()}
+// ---- move (folder picker) ----
+async function mvDlg(p){
+ let dir=cwd;const render=async()=>{
+  let d;try{d=await(await fetch('/api/sd?path='+enc(dir),{cache:'no-store'})).json()}catch(e){return}
+  const dirs=(d.entries||[]).filter(e=>e.d&&!e.n.startsWith('.')).sort((a,b)=>a.n.localeCompare(b.n));
+  let h='<div class="viewbox">'+hdr('移動: '+esc(base(p)),'pickClose()')+'<div class="meta" style="margin:8px 0 4px">移動先のフォルダを選んでください</div><div class="meta" style="color:#cfc">'+esc(dir)+'</div><div class="files body">';
+  if(dir!=='/')h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="window._mvGo(\''+esc(dirOf(dir))+'\')">../</span></span><span></span></div>';
+  dirs.forEach(e=>{h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="window._mvGo(\''+esc(join(dir,e.n))+'\')">'+esc(e.n)+'/</span></span><span></span></div>'});
+  h+=(dirs.length?'':'<div class=meta>（サブフォルダはありません）</div>')+'</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="pickClose()">キャンセル</button><button onclick="window._mvDo()"'+(dir===dirOf(p)?' disabled':'')+'>ここに移動</button></div></div>';
+  pick(h)};
+ window._mvGo=d=>{dir=d;render()};window._mvDo=()=>{pickClose();run(null,()=>post('/api/mv?from='+enc(p)+'&to='+enc(join(dir,base(p)))))};render();
+}
+// ---- new image / folder ----
+let imgFmt='dos1',imgMb=16;function setImgFmt(f){imgFmt=f;document.querySelectorAll('#segimgfmt button').forEach(b=>b.classList.toggle('on',b.dataset.v===f));const r=$('#segimgmb');if(r)r.style.display=f==='hdd'?'':'none';const i=$('#askin');if(i)i.value=i.value.replace(/\.(dsk|hdd)$/i,f==='hdd'?'.hdd':'.dsk')}
+function setImgMb(m){imgMb=m;document.querySelectorAll('#segimgmb button').forEach(b=>b.classList.toggle('on',+b.dataset.v===m))}
+const MB_SEG=(id,fn,cur)=>'<span class="seg" id="'+id+'">'+[16,24,32,48].map(m=>'<button data-v="'+m+'" class="'+(cur===m?'on':'')+'" onclick="'+fn+'('+m+')">'+m+' MB</button>').join('')+'</span>';
+async function newImgDlg(){const seg='<div class="segrow" style="margin-top:8px"><span class="lbl">形式</span><span class="seg" id="segimgfmt"><button data-v="dos1" class="'+(imgFmt==='dos1'?'on':'')+'" onclick="setImgFmt(\'dos1\')" title="MSX-DOS 1 形式のブートセクタ。内蔵ディスク ROM や Nextor（DOS 1 モードで起動）向け">DOS1</button><button data-v="dos2" class="'+(imgFmt==='dos2'?'on':'')+'" onclick="setImgFmt(\'dos2\')" title="MSX-DOS 2 形式のブートセクタ（VOL_ID 付き）。Nextor は DOS 2 モードで起動">DOS2</button><button data-v="hdd" class="'+(imgFmt==='hdd'?'on':'')+'" onclick="setImgFmt(\'hdd\')" title="Nextor の仮想 HDD 用のハードディスクイメージ（FAT16、DOS 2 モードで起動）。あとでサイズを変えられます">HDD</button></span></div><div class="segrow" id="segimgmb" style="'+(imgFmt==='hdd'?'':'display:none')+'"><span class="lbl">サイズ</span>'+MB_SEG('segimgmb2','setImgMb',imgMb)+'</div>';
+ const n=await prompt2('イメージ作成','空のディスクイメージをこのフォルダに作ります。対応するイメージ形式は DOS1 / DOS2: 2DD 720 KB, HDD: 16〜48 MB で FAT16でフォーマット済みです。DOS のシステムファイル（MSXDOS.SYS と COMMAND.COM、または NEXTOR.SYS と COMMAND2.COM）を入れれば DOS が起動し、なければ Disk BASIC が起動します。',imgFmt==='hdd'?'NEWDISK.HDD':'NEWDISK.DSK','作成',seg);if(n===null)return;let name=n.trim().replace(/[\\\/:*?"<>|]/g,'');if(!name){msg('名前を入れてください');return}
+ const hdd=imgFmt==='hdd';if(hdd){if(!/\.(hdd|dsk)$/i.test(name))name+='.hdd'}else if(!/\.dsk$/i.test(name))name+='.dsk';
+ if(sdRows.some(e=>e.n.toLowerCase()===name.toLowerCase())){msg('同じ名前のファイルがあります');return}run('作成中… '+name,()=>post('/api/mkimg?path='+enc(join(cwd,name))+'&fmt='+imgFmt+(hdd?'&mb='+imgMb:'')))}
+let rszMb=16;function setRszMb(m){rszMb=m;document.querySelectorAll('#segrsz button').forEach(b=>b.classList.toggle('on',+b.dataset.v===m))}
+async function resizeDlg(p,size){rszMb=[16,24,32,48].includes(size/1048576)?size/1048576:16;
+ const ok=await new Promise(res=>{const m=$('#askmodal');m.innerHTML='<div class="pickbox">'+hdr('サイズ変更','askDone(false)')+'<div class="meta" style="margin:8px 0 4px">'+esc(base(p))+'（いま '+(size/1048576).toFixed(0)+' MB）の大きさを変えます。大きくするときはそのまま広がります。小さくするときは、切り捨てる範囲にファイルのデータがあると変更できません（先にファイルを消してください）。</div><div class="segrow">'+MB_SEG('segrsz','setRszMb',rszMb)+'</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="askDone(false)">キャンセル</button><button onclick="askDone(true)">変更</button></div></div>';m.style.display='flex';window._askRes=res});
+ if(!ok)return;if(rszMb*1048576===size){msg('同じ大きさです');return}run('サイズ変更中…',()=>post('/api/imgresize?path='+enc(p)+'&mb='+rszMb))}
+const CACHE_REGIONS=[{far:0,name:'キャッシュ1（14 MB）',cap:14*1048576},{far:1,name:'キャッシュ2（48 MB）',cap:48*1048576}];
+function cacheDlg(){
+ let h='<div class="viewbox">'+hdr('キャッシュ','pickClose()')+'<div class="meta" style="margin:8px 0 4px">SD カードから基板のキャッシュに取り込んだファイルです。キャッシュを削除しても SD カードには影響しません。</div><div class="body">';
+ CACHE_REGIONS.forEach(r=>{const es=cat.entries.filter(e=>(e.far?1:0)===r.far),used=es.reduce((a,e)=>a+e.size,0),del=es.filter(e=>!mountedAt(e.path).length);
+  h+='<div class="drv" style="margin-top:10px;border-bottom:1px solid #3f5378"><span><b>'+r.name+'</b> <small class="dim">'+es.length+' 件 · 使用 '+(used/1048576).toFixed(1)+' MB</small></span><span>'+(del.length?'<button onclick="cacheClearAll('+r.far+')">すべて削除</button>':'')+'</span></div>';
+  if(!es.length)h+='<div class="meta" style="padding:6px 0">（なし）</div>';
+  es.forEach(e=>{const m=mountedAt(e.path);h+='<div class="drv"><span><span class="cur">'+esc(e.path)+'</span> <small>'+(e.tname==='disk'?entKind(e.i):TN[e.type])+' · '+num(e.size)+' バイト'+(e.dirty?' · <span class="err">書き戻し待ち</span>':'')+'</small></span><span>'+(m.length?'<small class="dim">マウント中: '+esc(m.join(', '))+'</small>':'<button onclick="cacheDel(\''+esc(e.path)+'\')">削除</button>')+'</span></div>'})});
+ h+='</div></div>';pick(h);window._dlgRefresh=cacheDlg;
+}
+async function cacheDel(p){if(!await ask('キャッシュから削除',esc(p)+' をキャッシュから削除します。SD カードのファイルは残ります。','削除',true))return;run(null,()=>post('/api/uncache?path='+enc(p)))}
+async function cacheClearAll(far){const es=cat.entries.filter(e=>(e.far?1:0)===far&&!mountedAt(e.path).length);if(!es.length)return;if(!await ask('すべて削除',es.length+' 件をキャッシュから削除します。マウント中のものは残ります。SD カードのファイルは残ります。','削除',true))return;run('削除中…',async()=>{let n=0;for(const e of es){const r=await post('/api/uncache?path='+enc(e.path));if(r.startsWith('ok'))n++}return n+' 件削除しました'})}
+async function mkdirDlg(){const n=await prompt2('フォルダ作成',esc(cwd)+' に新しいフォルダを作ります。','','作成');if(n===null)return;const name=n.trim().replace(/[\\\/:*?"<>|]/g,'');if(!name){msg('名前を入れてください');return}run(null,()=>post('/api/mkdir?path='+enc(join(cwd,name))))}
+// ---- upload with progress ----
+// Files go up in 128 KB pieces (POST ...&off=N), each a plain fetch: progress comes from the pieces done.
+// Safari (WebKit 605, Safari 26) never completes one big XMLHttpRequest once an upload progress listener
+// is attached (the reply arrives, readyState stops at 3 until the timeout), so no XHR upload progress.
+const UP_PIECE=131072;
+function putProg(url,f,label){return serial(async()=>{pick('<div class="pickbox">'+hdr('アップロード','')+'<div class="name" style="margin-top:8px">'+esc(label)+'</div><div id="progbar2" style="height:10px;background:#14161a;border:1px solid #2a2f38;border-radius:5px;overflow:hidden;margin:10px 0 6px"><div id="progfill2" style="height:100%;width:0;background:#7ec8ff;transition:width .25s"></div></div><div class="meta" id="progtxt">送信中…</div></div>');
+ const show=(done,txt)=>{const b=$('#progfill2'),t=$('#progtxt');if(b)b.style.width=(f.size?done/f.size*100:100).toFixed(0)+'%';if(t)t.textContent=txt||num(done)+' / '+num(f.size)+' バイト'};
+ let off=0,last='';
+ do{const end=Math.min(off+UP_PIECE,f.size);let body;try{body=await f.slice(off,end).arrayBuffer()}catch(e){return{ok:false,text:'ファイルを読めません'}}
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),30000);let r;
+  try{r=await rawFetch(url+'&off='+off,{method:'POST',body,signal:ac.signal});last=(await r.text()).trim()}catch(e){clearTimeout(tm);return{ok:false,text:e.name==='AbortError'?'タイムアウト':'通信エラー'}}
+  clearTimeout(tm);if(!r.ok)return{ok:false,text:last};
+  off=end;show(off,off>=f.size?num(f.size)+' / '+num(f.size)+' バイト — 書き込み完了':undefined)}while(off<f.size);
+ return{ok:true,text:last}})}
+const safeName=n=>{const i=n.lastIndexOf('.');let b=i>0?n.slice(0,i):n,e=i>0?n.slice(i):'';b=b.normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'file';e=e.replace(/[^A-Za-z0-9.]/g,'');return (b+e).slice(0,100)};
+async function uploadFile(f,pos){
+ let name=f.name,j=await putProg('/api/upload?path='+enc(join(cwd,name)),f,(pos||'')+name);
+ if(!j.ok&&/cannot create|bad path/.test(j.text)&&safeName(name)!==name){name=safeName(name);j=await putProg('/api/upload?path='+enc(join(cwd,name)),f,(pos||'')+name)}   // the card rejected the name: retry with a safe one
+ pickClose();msg(j.ok?'アップロードしました: '+name+(name!==f.name?'（'+f.name+' を改名）':''):'失敗: '+f.name+' — '+j.text);return j.ok}
+async function uploadAll(fs){sdBusy=true;let ok=0,bad=[];for(let i=0;i<fs.length;i++){const f=fs[i];if(join(cwd,f.name).length>=200){bad.push(f.name+'（パスが長すぎます: フォルダを含めて 199 文字まで）');if(fs.length===1)msg('アップロードできません: '+f.name+' はパスが長すぎます（フォルダを含めて 199 文字まで、いま '+join(cwd,f.name).length+' 文字）');continue}if(await uploadFile(f,fs.length>1?(i+1)+' / '+fs.length+'  ':''))ok++;else bad.push(f.name)}sdBusy=false;await ls();if(fs.length>1)msg(ok+' 個をアップロードしました'+(bad.length?'。失敗: '+bad.join(', '):''))}
+async function upload(){const fs=[...$('#up').files];if(!fs.length){msg('ファイルを選んでください');return}$('#up').value='';uploadAll(fs)}
+{const dz=$('#dropzone');dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drop')});dz.addEventListener('dragleave',()=>dz.classList.remove('drop'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drop');uploadAll([...e.dataTransfer.files])});window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault())}
+// ---- mount dialog (disk image: drives + contents; ROM: slots) ----
+function mountDlg(i){
+ const e=sdRows[i],p=join(cwd,e.n);
+ if(isRom(e.n)){romDlg(p,e.s);return}
+ window._dlgRefresh=()=>imgDlgRender(p,'mount');imgDlgRender(p,'mount');
+}
+// ROM mount dialog: the pages the ROM takes come from its header (GET /api/romhead), and only the cells
+// with those pages free are offered; the mapper choice can change the pages (plain vs MegaROM).
+// A ROM picked for a cell: check its pages against the cell's free pages first; a ROM that does not fit gets a notice on top of the browser.
+async function cellRom(p,size,cell){
+ let hd=null;try{hd=await(await fetch('/api/romhead?path='+enc(p),{cache:'no-store'})).json()}catch(e){}
+ const c=cached(p),type=c?c.type:0,pg=hd?romPages(hd.size,hd.h0,hd.h1,type):6;
+ const row=freeRows().find(r=>r.cell===cell),free=row?row.free:[];
+ if(!pageList(pg).every(i=>free.includes(i))){await note('マウントできません',esc(base(p))+' はこのページにはマウントできません。'+pageText(pg)+' が必要です。');return}
+ mount(p,cell,type);   // straight to the mount (mapper auto-detected, or the cached type); the SD card list keeps the dialog with the mapper choice
+}
+async function romDlg(p,size,cell){
+ let hd=null;try{hd=await(await fetch('/api/romhead?path='+enc(p),{cache:'no-store'})).json()}catch(e){}
+ const c=cached(p);let type=c?c.type:0;
+ const render=()=>{const m=mountedAt(p),pg=hd?romPages(hd.size,hd.h0,hd.h1,type):6;
+  let h='<div class="viewbox">'+hdr(esc(base(p)),'pickClose()')+(cell?'<div class="meta"><a onclick="cellBrowse(\''+cell+'\',\''+esc(dirOf(p))+'\')">← ROM の一覧へ</a></div>':'')+'<div class="segrow" style="margin:10px 0 6px;gap:10px"><select id="romtype" onchange="window._romType(+this.value)" title="マッパ。「自動判別」は ROM の内容から MegaROM のマッパを推定します。うまく動かないときは種類を指定してください">'+[0,1,2,3,4,5].map(t=>'<option value="'+t+'"'+(type===t?' selected':'')+'>'+TN[t]+'</option>').join('')+'</select><small class="dim">'+pageText(pg)+(hd?' · '+num(hd.size)+' バイト':'')+(c?' · キャッシュ済み':'')+'</small></div>';
+  cartst.slots.forEach(x=>{if(x.set&&c&&x.shelf===c.i)h+='<div class="drv"><span><span class="lbl">スロット '+esc(x.slot)+'</span><span class="cur">'+esc(entName(x.shelf))+'</span> <small>'+TN[x.type]+'</small></span><span><span class="mnt" style="color:#7ee787;font-size:12px">マウント中</span> <button onclick="ejectCart(\''+x.slot+'\');pickClose()">アンマウント</button></span></div>'});
+  const fr=rowsFor(pg).filter(r=>!cell||r.cell===cell);if(!fr.length)h+='<div class="meta">'+(cell?'この ROM（'+pageText(pg)+'）はスロット '+esc(cell)+' の空きに収まりません。マッパの指定を変えると収まることがあります。':pageText(pg)+' が空いているスロットがありません（vz80 が起動していないか、すべて使用中です）。')+'</div>';
+  fr.forEach(r=>{h+='<div class="drv"><span><span class="lbl">スロット '+esc(r.cell)+'</span>'+(r.phys?'<small class="dim">カートリッジスロット</small>':'')+'</span><span><button onclick="mount(\''+esc(p)+'\',\''+r.cell+'\','+type+')">マウント</button></span></div>'});
+  h+='<div class="meta" style="margin-top:8px">再起動後に反映されます。</div></div>';
+  pick(h)};
+ window._romType=t=>{type=t;render()};render();
+}
+let imgMode='mount';
+function imgBrowse(p){imgMode='browse';window._dlgRefresh=()=>imgDlgRender(p,'browse');imgOpen(p)}
+function imgDlgRender(p,mode){
+ mode=mode||imgMode;imgMode=mode;
+ const c=cached(p),m=mountedAt(p);
+ let h='<div class="viewbox'+(mode==='browse'?' wide':'')+'">'+hdr(esc(base(p)),'pickClose()');
+ if(mode==='mount'){const row=sdRows.find(e=>join(cwd,e.n)===p),hd=isHdd(base(p),row?row.s:(c?c.size:0));
+ h+='<div class="meta" style="margin:8px 0 4px">'+(hd?'ハードディスクイメージ（'+((row?row.s:c.size)/1048576).toFixed(0)+' MB）のマウント先':'マウント先の仮想ドライブ')+'</div>';
+ const drow=(label,d)=>{const here=c&&d.shelf===c.i,ok=!!d.kind||d.mode==='virtual';let r='<div class="drv"><span><span class="lbl">'+label+'</span>'+kindTag(d);
+  if(ok)r+=d.shelf>=0?'<span class="cur">'+esc(entName(d.shelf))+'</span> <small>'+entKind(d.shelf)+'</small>':NONE;else r+='<span class="dim">「ドライブ設定」で仮想にすると使えます</span>';
+  return r+'</span><span>'+(!ok?'':here?'<span class="mnt" style="color:#7ee787;font-size:12px">マウント中</span> <button onclick="eject(\''+d.drive+'\')">アンマウント</button>':'<button onclick="mount(\''+esc(p)+'\',\''+d.drive+'\')">'+(d.shelf>=0?'入れ替える':'ここにマウント')+'</button>')+'</span></div>'};
+ const targets=fdRows().filter(r=>{const d=rowUnit(r);return d&&r.letter!=='—'&&!(r.kind==='internal'&&d.mode==='none')&&((d.kind==='hdd')===hd)});
+ if(!targets.length)h+='<div class="meta">'+(hd?'仮想 HDD の行がありません。「ドライブ設定」で「仮想 HDD を追加」してから MSX を再起動してください。':'マウントできるドライブがありません。')+'</div>';
+ targets.forEach(r=>{const d=rowUnit(r);h+=drow('ドライブ '+esc(r.letter)+' <small class="dim">'+esc(r.sub)+'</small>',d)});
+  h+='<div class="meta" style="margin-top:10px">'+(hd?'初回のマウントはイメージをキャッシュに取り込むため、48 MB で 5 分ほどかかります。':'中身を見るには一覧の「…」から「ブラウズ」を選んでください。')+'</div></div>';pick(h);return}
+ h+='<div class="meta" style="margin:12px 0 4px;display:flex;justify-content:space-between;align-items:center"><span>イメージの内容'+(m.length?'（マウント中は読み取り専用）':'')+'</span><span id="iinfo"></span></div><div id="icrumb" class="meta" style="color:#cfc;margin:0 0 4px"></div><div id="ifiles" class="files body"></div>';
+ h+='<div style="display:flex;gap:10px;align-items:flex-start;margin-top:10px"><div id="idrop" class="dropzone"><input type="file" id="iup" multiple'+(m.length?' disabled':'')+'> <button onclick="imgUpload()"'+(m.length?' disabled':'')+'>イメージに追加</button><div class="meta">ここにファイルをドロップしても追加できます</div></div><button onclick="imgMkdir()" style="white-space:nowrap;margin:0"'+(m.length?' disabled':'')+'>フォルダ作成</button></div></div>';
+ pick(h);const dz=$('#idrop');dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drop')});dz.addEventListener('dragleave',()=>dz.classList.remove('drop'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drop');if(!m.length)imgAddFiles(e.dataTransfer.files)});
+ imgRender();
+}
+// ---- FAT12 image browser (client side; the whole image is fetched from the card and written back after a change) ----
+let dimg=null;   // {path,buf,bps,spc,res,nfats,rootn,spf,tot,rootOff,dataSec,nclu,stack:[{name,clu}]}
+const le16=(b,o)=>b[o]|b[o+1]<<8, le32=(b,o)=>(b[o]|b[o+1]<<8|b[o+2]<<16|b[o+3]<<24)>>>0;
+let sjis=null;try{sjis=new TextDecoder('shift_jis')}catch(e){sjis=new TextDecoder('latin1')}
+// MSX-DOS のファイル名は MSX 日本語文字セット（JIS X 0201 の半角カナに 1 バイトのひらがなを足したもの）
+const MSXJP='♠♥♣♦○●をぁぃぅぇぉゃゅょっ あいうえおかきくけこさしすせそ ｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん  ';
+function msxStr(b){let s='';for(const c of b)s+=c<0x80?String.fromCharCode(c):MSXJP[c-0x80];return s.replace(/([かきくけこさしすせそたちつてとはひふへほ])ﾞ/g,(m,c)=>String.fromCharCode(c.charCodeAt(0)+1)).replace(/([はひふへほ])ﾟ/g,(m,c)=>String.fromCharCode(c.charCodeAt(0)+2))}   // ひらがなの濁点・半濁点は半角記号が続く: 表示では 1 文字に合成
+async function imgOpen(p){
+ msg('イメージを読み込んでいます…');
+ let buf;try{const r=await fetch('/api/file?path='+enc(p),{cache:'no-store'});if(!r.ok)throw 0;buf=new Uint8Array(await r.arrayBuffer())}catch(e){msg('読み込みに失敗しました');return}
+ const b={path:p,buf,bps:le16(buf,11),spc:buf[13],res:le16(buf,14),nfats:buf[16],rootn:le16(buf,17),spf:le16(buf,22),tot:le16(buf,19),stack:[]};
+ b.ok=b.bps===512&&b.spc>0&&b.spf>0&&b.nfats>0&&b.res>0&&b.tot*512<=buf.length;
+ if(b.ok){b.rootOff=(b.res+b.nfats*b.spf)*512;b.dataSec=b.res+b.nfats*b.spf+Math.ceil(b.rootn*32/512);b.nclu=Math.floor((b.tot-b.dataSec)/b.spc)}
+ dimg=b;imgDlgRender(p);
+}
+const fatGet=n=>{const f=dimg.buf,o=dimg.res*512+(n*3>>1);const v=le16(f,o);return n&1?v>>4:v&0xFFF};
+function fatSet(n,v){for(let k=0;k<dimg.nfats;k++){const f=dimg.buf,o=dimg.res*512+k*dimg.spf*512+(n*3>>1);if(n&1){f[o]=(f[o]&0x0F)|((v<<4)&0xF0);f[o+1]=v>>4}else{f[o]=v&0xFF;f[o+1]=(f[o+1]&0xF0)|((v>>8)&0x0F)}}}
+const chain=c=>{const r=[];let g=0;while(c>=2&&c<0xFF8&&g++<4096){r.push(c);c=fatGet(c)}return r};
+const cluOff=c=>(dimg.dataSec+(c-2)*dimg.spc)*512;
+function dirBuf(clu){if(!clu)return{segs:[{off:dimg.rootOff,len:dimg.rootn*32}]};return{segs:chain(clu).map(c=>({off:cluOff(c),len:dimg.spc*512}))}}
+function dirEntries(clu){const d=dirBuf(clu),out=[];for(const s of d.segs)for(let o=s.off;o<s.off+s.len;o+=32){const b=dimg.buf;if(b[o]===0)return out;if(b[o]===0xE5||(b[o+11]&0x0F)===0x0F||(b[o+11]&8))continue;const nb=b.slice(o,o+8);if(nb[0]===0x05)nb[0]=0xE5;const nm=msxStr(nb).trimEnd(),ex=msxStr(b.subarray(o+8,o+11)).trimEnd();const n=nm+(ex?'.'+ex:'');if(n==='.'||n==='..')continue;out.push({n,d:!!(b[o+11]&0x10),s:le32(b,o+28),clu:le16(b,o+26),off:o})}return out}
+function freeSlot(clu){const d=dirBuf(clu);for(const s of d.segs)for(let o=s.off;o<s.off+s.len;o+=32)if(dimg.buf[o]===0||dimg.buf[o]===0xE5)return o;
+ if(!clu)return-1;const ch=chain(clu),n=allocClu(1);if(!n)return-1;fatSet(ch[ch.length-1],n[0]);return cluOff(n[0])}
+function allocClu(count){const r=[];for(let c=2;c<2+dimg.nclu&&r.length<count;c++)if(fatGet(c)===0)r.push(c);if(r.length<count)return null;r.forEach((c,i)=>{fatSet(c,i+1<r.length?r[i+1]:0xFFF);dimg.buf.fill(0,cluOff(c),cluOff(c)+dimg.spc*512)});return r}
+function freeChain(c){chain(c).forEach(x=>fatSet(x,0))}
+function readFile(e){const out=new Uint8Array(e.s);let w=0;for(const c of chain(e.clu)){const k=Math.min(dimg.spc*512,e.s-w);if(k<=0)break;out.set(dimg.buf.subarray(cluOff(c),cluOff(c)+k),w);w+=k}return out}
+function dosName(n){n=n.trim().toUpperCase();if(!/^[\x21-\x7E]+$/.test(n)||/[\\\/:*?"<>|+,;=\[\]]/.test(n))return null;let [nm,...ext]=n.split('.');ext=ext.join('');if(!nm||nm.length>8||ext.length>3)return null;return nm.padEnd(8)+ext.padEnd(3)}
+function dosTime(){const d=new Date();return{t:(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),dt:((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()}}
+function putEntry(off,name83,attr,clu,size){const b=dimg.buf,{t,dt}=dosTime();for(let i=0;i<11;i++)b[off+i]=name83.charCodeAt(i);b[off+11]=attr;b.fill(0,off+12,off+32);b[off+22]=t&255;b[off+23]=t>>8;b[off+24]=dt&255;b[off+25]=dt>>8;b[off+26]=clu&255;b[off+27]=clu>>8;b[off+28]=size&255;b[off+29]=(size>>8)&255;b[off+30]=(size>>16)&255;b[off+31]=(size>>>24)&255}
+const curClu=()=>dimg.stack.length?dimg.stack[dimg.stack.length-1].clu:0;
+let imgRows=[];
+function imgRender(){
+ const v=$('#ifiles');if(!v)return;
+ if(!dimg||!dimg.ok){v.innerHTML='<div class=meta>MSX-DOS 形式（FAT12）のディスクイメージとして読めません</div>';$('#icrumb').innerHTML='';return}
+ const m=mountedAt(dimg.path).length>0;
+ imgRows=dirEntries(curClu()).sort((a,b)=>(b.d|0)-(a.d|0)||a.n.localeCompare(b.n));
+ let bc='<a onclick="imgUp(0)">'+esc(base(dimg.path))+'</a>';dimg.stack.forEach((s,i)=>{bc+=' / '+(i===dimg.stack.length-1?'<b>'+esc(s.name)+'</b>':'<a onclick="imgUp('+(i+1)+')">'+esc(s.name)+'</a>')});
+ $('#icrumb').innerHTML=bc;
+ let used=0;for(let c=2;c<2+dimg.nclu;c++)if(fatGet(c))used++;$('#iinfo').textContent='空き '+num((dimg.nclu-used)*dimg.spc*512)+' バイト';
+ let h=dimg.stack.length?'<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="imgUp('+(dimg.stack.length-1)+')">../</span></span><span></span></div>':'';
+ imgRows.forEach((e,i)=>{h+=e.d?'<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="imgDown('+i+')">'+esc(e.n)+'/</span></span><span><button onclick="imgMenu(event,'+i+')">…</button></span></div>'
+  :'<div class="row"><span class="fn"><span class="ic"></span>'+(textish(e.n)?'<span class="txt" onclick="imgView('+i+')">'+esc(e.n)+'</span>':'<span>'+esc(e.n)+'</span>')+'</span><span><small>'+num(e.s)+'</small><button onclick="imgMenu(event,'+i+')">…</button></span></div>'});
+ v.innerHTML=h||'<div class=meta>（空のフォルダ）</div>';
+}
+function imgDown(i){const e=imgRows[i];dimg.stack.push({name:e.n,clu:e.clu});imgRender()}
+function imgUp(n){dimg.stack.length=n;imgRender()}
+function imgMenu(ev,i){ev.stopPropagation();const e=imgRows[i],m=$('#ctxmenu'),ro=mountedAt(dimg.path).length>0;let h='';
+ if(!e.d){if(textish(e.n))h+='<button onclick="imgView('+i+')">表示</button>';h+='<button onclick="imgDownload('+i+')">ダウンロード</button>'}
+ if(!ro)h+='<button onclick="imgMvDlg('+i+')">移動…</button><button class="warn" onclick="imgDelAsk('+i+')">削除</button>';
+ m.innerHTML=h||'<button disabled>（読み取り専用）</button>';m.style.display='block';m.style.left=Math.min(ev.clientX,innerWidth-190)+'px';m.style.top=Math.min(ev.clientY,innerHeight-160)+'px'}
+function imgDownload(i){const e=imgRows[i],a=document.createElement('a');a.href=URL.createObjectURL(new Blob([readFile(e)]));a.download=e.n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+async function imgSave(){msg('イメージを書き戻しています…');const r=await fetch('/api/file?path='+enc(dimg.path),{method:'POST',body:dimg.buf});const t=(await r.text()).trim();if(!r.ok){msg('書き戻しに失敗: '+t);await imgOpen(dimg.path);return false}msg('保存しました');refreshState();return true}
+function imgView(i){const e=imgRows[i],raw=readFile(e);let t=sjis.decode(raw);window._iedEof=/\x1A\s*$/.test(t);window._iedCrlf=/\r\n/.test(t);t=t.replace(/\x1A[\s\x1A]*$/,'');window._iedTxt=t;const ro=mountedAt(dimg.path).length>0,ascii=/^[\x00-\x7F]*$/.test(t);
+ const m=$('#viewmodal');m.innerHTML='<div class="viewbox">'+hdr(esc(e.n),'viewClose()')+'<pre id="edpre"></pre><p style="margin:0">'+(ro?'<span class=meta>マウント中は読み取り専用です</span>':ascii?'<button onclick="imgEdit('+i+')">編集</button>':'<span class=meta>日本語（Shift_JIS）を含むファイルの編集は未対応です</span>')+'</p></div>';$('#edpre').textContent=t;m.style.display='flex';lockScroll(true)}
+function imgEdit(i){const e=imgRows[i],m=$('#viewmodal');m.innerHTML='<div class="viewbox wide">'+hdr(esc(e.n),'viewClose()')+'<textarea id="edta"></textarea><p style="margin:0"><button onclick="imgEditSave('+i+')">保存</button> <button onclick="viewClose()">キャンセル</button></p></div>';$('#edta').value=window._iedTxt}
+async function imgEditSave(i){const e=imgRows[i];let t=$('#edta').value;if(!/^[\x00-\x7F]*$/.test(t)){msg('ASCII 以外の文字は保存できません');return}if(window._iedCrlf)t=t.replace(/\r?\n/g,'\r\n');if(window._iedEof)t+='\x1A';const data=new TextEncoder().encode(t);
+ if(!imgWriteFile(curClu(),e.n,data,e)){msg('空き容量が足りません');return}viewClose();if(await imgSave())imgRender()}
+function imgWriteFile(dirClu,name,data,replace){const n83=dosName(name);if(!n83)return false;const need=Math.ceil(data.length/(dimg.spc*512));
+ if(replace)freeChain(replace.clu);const cl=need?allocClu(need):null;if(need&&!cl){if(replace)fatSet(replace.clu,0xFFF);return false}
+ cl&&cl.forEach((c,i)=>dimg.buf.set(data.subarray(i*dimg.spc*512,(i+1)*dimg.spc*512),cluOff(c)));
+ const off=replace?replace.off:freeSlot(dirClu);if(off<0){cl&&freeChain(cl[0]);return false}putEntry(off,n83,0x20,cl?cl[0]:0,data.length);return true}
+async function imgAddFiles(fs){if(!dimg||!dimg.ok)return;const here=dirEntries(curClu());for(const f of fs){const n83=dosName(f.name);if(!n83){msg('MSX-DOS で使えない名前です: '+f.name+'（8.3 形式・英数字）');continue}const dup=here.find(e=>e.n.toLowerCase()===f.name.toLowerCase());if(dup&&dup.d){msg('同名のフォルダがあります: '+f.name);continue}
+  const data=new Uint8Array(await f.arrayBuffer());if(!imgWriteFile(curClu(),f.name,data,dup)){msg('空き容量が足りません: '+f.name);await imgOpen(dimg.path);return}}
+ if(await imgSave())imgRender()}
+async function imgUpload(){const fs=$('#iup').files;if(!fs.length){msg('ファイルを選んでください');return}await imgAddFiles(fs);const u=$('#iup');if(u)u.value=''}
+async function imgMkdir(){const n=await prompt2('フォルダ作成','イメージ内の '+esc(dimg.stack.map(s=>s.name).join('/')||'ルート')+' に新しいフォルダを作ります（8 文字までの英数字）。','','作成');if(n===null)return;const n83=dosName(n);if(!n83||n.includes('.')){msg('MSX-DOS で使えない名前です');return}
+ if(dirEntries(curClu()).some(e=>e.n.toLowerCase()===n.trim().toLowerCase())){msg('同じ名前があります');return}
+ const cl=allocClu(1);if(!cl){msg('空き容量が足りません');return}const off=freeSlot(curClu());if(off<0){freeChain(cl[0]);msg('ディレクトリがいっぱいです');return}
+ putEntry(off,n83,0x10,cl[0],0);putEntry(cluOff(cl[0]),'.          ',0x10,cl[0],0);putEntry(cluOff(cl[0])+32,'..         ',0x10,curClu(),0);
+ if(await imgSave())imgRender()}
+async function imgDelAsk(i){const e=imgRows[i];if(!await ask('削除',esc(e.n)+(e.d?' フォルダ':'')+' をイメージから削除します。よろしいですか？','削除',true))return;
+ if(e.d&&dirEntries(e.clu).length){msg('フォルダが空ではありません');return}dimg.buf[e.off]=0xE5;if(e.clu>=2)freeChain(e.clu);if(await imgSave())imgRender()}
+async function imgMvDlg(i){const e=imgRows[i];let stack=dimg.stack.slice();const render=()=>{const clu=stack.length?stack[stack.length-1].clu:0,dirs=dirEntries(clu).filter(x=>x.d&&x.off!==e.off);
+  let h='<div class="pickbox">'+hdr('移動: '+esc(e.n),'askDone(null)')+'<div class="meta" style="margin:8px 0 4px">移動先のフォルダ（イメージ内）</div><div class="meta" style="color:#cfc">'+esc(base(dimg.path)+(stack.length?' / '+stack.map(s=>s.name).join(' / '):''))+'</div><div class="files" style="max-height:40vh;overflow:auto">';
+  if(stack.length)h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="window._imvUp()">../</span></span><span></span></div>';
+  dirs.forEach((d,k)=>{h+='<div class="row"><span class="fn"><span class="ic">'+IC_DIR+'</span><span class="dir" onclick="window._imvDown('+k+')">'+esc(d.n)+'/</span></span><span></span></div>'});
+  h+=(dirs.length?'':'<div class=meta>（サブフォルダはありません）</div>')+'</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button onclick="askDone(null)">キャンセル</button><button onclick="askDone(true)"'+(clu===curClu()?' disabled':'')+'>ここに移動</button></div></div>';
+  const m=$('#askmodal');m.innerHTML=h;m.style.display='flex';window._imvDown=k=>{stack.push({name:dirs[k].n,clu:dirs[k].clu});render()};window._imvUp=()=>{stack.pop();render()}};
+ const ok=await new Promise(res=>{window._askRes=res;render()});if(!ok)return;
+ const dst=stack.length?stack[stack.length-1].clu:0;if(dirEntries(dst).some(x=>x.n===e.n)){msg('移動先に同じ名前があります');return}
+ const off=freeSlot(dst);if(off<0){msg('移動先のディレクトリがいっぱいです');return}dimg.buf.set(dimg.buf.slice(e.off,e.off+32),off);dimg.buf[e.off]=0xE5;
+ if(e.d){const dd=cluOff(e.clu)+32;dimg.buf[dd+26]=dst&255;dimg.buf[dd+27]=dst>>8}
+ if(await imgSave())imgRender()}
+function seg(id,v){document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('on',+b.dataset.v===v))}
+let st=null, self=null;
+async function tick(){
+ try{
+  const j=await(await fetch('/api/status',{cache:'no-store'})).json(); self=j;
+  $('#wifi').textContent=j.wifi==='up'?'Wi-Fi接続済':j.wifi==='joining'?'Wi-Fi接続中...':'Wi-Fi未設定';
+  $('#hname').textContent=j.name||''; document.title='VZ80'+(j.name?' - '+j.name:'');
+  if(j.link&&(j.link.rx===0||j.link.ok_ago_ms>8000))throw new Error('rp2350 silent');
+  const jt=await api('jstatus'); if(!jt.startsWith('{'))throw new Error(jt.trim()||'rp2350 no reply'); const s=JSON.parse(jt); st=s;
+  const rows=[
+   ['ファームウェア',esc(s.fw)],
+   ['基板バージョン',esc(s.board||'—')],
+   ['RP2350',s.sys_mhz+' MHz · '+s.temp.toFixed(1)+' ℃'],
+   ['ホスト名',esc(j.name||'—')],
+   ['SD カード',j.sd&&j.sd.mounted?(j.sd.size_mb/1024).toFixed(1)+' GB':j.sd&&j.sd.present?'<span class=err>認識できません</span>':'なし'],
+   ['Wi-Fi MACアドレス',esc(j.mac)],['IPアドレス',esc(j.ip)]];
+  const rows2=[
+   ['RAM',s.ram_kb+' KB'+(s.ram_set&&s.ram_set!=s.ram_kb?'（設定 '+s.ram_set+' KB は次の起動から）':'')],
+   ['VRAM',s.vram_kb+' KB'],
+   ['FDC',fdst.fdc?esc(fdst.fdc)+'<br><small class="dim">'+esc(fdst.iface||'')+'</small>':'—'],
+   ['クロック周波数',s.clk_hz?(s.clk_hz/1e6).toFixed(2)+' MHz':'<span class=err>なし</span>'],
+   ['稼働時間',fmtUp(j.uptime)]];
+  $('#info').innerHTML=rows.map(([k,v])=>'<span>'+k+'</span><span>'+v+'</span>').join('');$('#info2').innerHTML=rows2.map(([k,v])=>'<span>'+k+'</span><span>'+v+'</span>').join('');
+  seg('segspeed',[0,1,2].includes(s.speed)?s.speed:1); seg('segvdp',[6,7,8,12].includes(s.vdpgap)?s.vdpgap:-1); seg('segclk',[150,200,250,300].includes(s.sysclk_set)?s.sysclk_set:-1); seg('segram',[64,256,512,1024].includes(s.ram_set)?s.ram_set:64);
+  $('#cfginfo').innerHTML=s.fault?'<span class=err>BUS FAULT</span>':'';
+  $('#fwinfo').textContent=fwSel?fwSel:('現在 '+s.fw+' — パッケージ (.vzp) を選んでください');
+  $('#restartnote').style.display=s.restart_needed?'block':'none';
+  const trial=s.slot==='B'||j.esp_pending; $('#trial').style.display=trial?'block':'none';
+  if(trial)$('#trialtxt').innerHTML='<b>テスト起動中:</b> RP2350 '+esc(s.fw)+(s.slot==='B'?'（スロット B）':'（確定済み）')+' · ESP32 '+esc(j.version)+(j.esp_pending?'（未確定）':'（確定済み）');
+  if(stale){setStale(false);refreshState()}
+ }catch(e){const rp=/rp2350/.test(String(e))||(self&&self.link&&self.link.ok_ago_ms>8000);setStale(true,rp?'VZ80が応答していません。起動または再起動を待っています…':'vz80 と通信できません（'+esc(String(e).slice(0,60))+'）。復帰を待っています…')}
+}
+async function cfg(k,v){await api('set '+k+' '+v);const r=await api('save');msg(r.startsWith('ok')?'設定を反映しました':r.trim());tick()}
+// ---- dialogs ----
+function nameDlg(){$('#namein').value=self&&self.name||'';show('namemodal');setTimeout(()=>$('#namein').focus(),50)}
+async function nameSave(){const v=$('#namein').value.trim();if(new TextEncoder().encode(v).length>31){msg('ホスト名が長すぎます(31 バイトまで)');return}
+ try{const j=await(await fetch('/api/config?name='+encodeURIComponent(v),{cache:'no-store'})).json();if(j.ok){hide('namemodal');msg('ホスト名を「'+(j.name||'vz80')+'」にしました');tick()}else msg('設定に失敗しました')}catch(e){msg('設定に失敗しました: '+e)}}
+function locDlg(){show('locmodal')}
+async function locGo(){hide('locmodal');await api('locate 10000');msg('LED を 10 秒間白く点滅させます')}
+function rebootDlg(){show('rebootmodal');setTimeout(()=>$('#rebootmodal button.warn').focus(),50)}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#rebootmodal').style.display==='flex'){e.preventDefault();rebootGo()}});
+async function promote(){if(!confirm('テスト起動中の版を確定します。よろしいですか？'))return;msg('昇格しています...');const r=await(await fetch('/api/promote',{method:'POST'})).text();msg(r.trim());tick()}
+async function rollback(){if(!confirm('テスト起動をやめて元の版に戻します。MSX はリセットされます。'))return;await fetch('/api/rollback',{method:'POST'}).catch(()=>{});msg('元の版に戻しています...');gotFull=false;setTimeout(()=>location.reload(),15000)}
+async function rebootGo(){hide('rebootmodal');api('reboot').catch(()=>{});msg('再起動しています...');gotFull=false}
+// ---- screen (VDP renderer from the VRAM shadow) ----
+const VRAM=new Uint8Array(131072); let regs=new Uint8Array(64), pal=new Uint16Array(16), gotFull=false, scrTimer=null, fpsMs=500, busy=false;
+const cv=$('#scr'), ctx=cv.getContext('2d'); let img=null;
+function setFps(ms){fpsMs=ms;seg('segfps',ms);if(scrTimer){clearTimeout(scrTimer);scrTimer=null}if(ms)screen()}
+async function fetchVram(full){
+ const r=await fetch('/api/vram'+(full?'?full=1':''),{cache:'no-store'}); if(!r.ok) throw new Error('vram '+r.status);
+ const b=new Uint8Array(await r.arrayBuffer()); if(b.length<98) throw new Error('short');
+ regs=b.subarray(0,64); for(let i=0;i<16;i++)pal[i]=b[64+2*i]|(b[65+2*i]<<8);
+ const cnt=b[96]|(b[97]<<8); let o=98;
+ for(let i=0;i<cnt;i++){const blk=b[o]|(b[o+1]<<8);o+=2;VRAM.set(b.subarray(o,o+512),blk*512);o+=512}
+ return cnt;
+}
+function rgb(p){return [((p>>4)&7)*255/7|0,((p>>8)&7)*255/7|0,(p&7)*255/7|0]}
+function render(){
+ const R=regs, M1=(R[1]>>4)&1, M2=(R[1]>>3)&1, M3=(R[0]>>1)&1, M4=(R[0]>>2)&1, M5=(R[0]>>3)&1, blank=!(R[1]&0x40);
+ const lines=(R[9]&0x80)?212:192, mode=M1&&M4?'T2':M1?'T1':M2?'MC':M5&&M4&&M3?'G7':M5&&M3?'G6':M5?'G5':M4&&M3?'G4':M4?'G3':M3?'G2':'G1';
+ let W=256,H=lines; if(mode==='T1')W=240; if(mode==='T2')W=480; if(mode==='G5'||mode==='G6')W=512;
+ const CW=W>=480?640:320, CH=240, bx=(CW-W)>>1, by=(CH-H)>>1;   // border like a TV: 320x240 (or 640 wide in 512-dot modes)
+ if(cv.width!==CW||cv.height!==CH){cv.width=CW;cv.height=CH}
+ if(!img||img.width!==W||img.height!==H)img=ctx.createImageData(W,H);
+ const scale=CW>=640?1:2; cv.style.width='100%'; cv.style.maxWidth=(CW*scale)+'px'; cv.style.aspectRatio='4 / 3'; cv.style.height='auto';   // integer scale on a wide screen, shrinks to fit a phone
+ $('#savepng2').style.display=CW>=640?'':'none';   // 512-dot modes: pixels are half as wide as tall, offer a height-doubled download
+ const d=img.data;
+ const P=[];for(let i=0;i<16;i++)P.push(rgb(pal[i]));
+ const bg=R[7]&15, fg=R[7]>>4; const vs=R[23]; // vertical scroll
+ const put=(x,y,c)=>{const o=(y*W+x)*4;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255};
+ const bc=mode==='G7'?[((R[7]>>2)&7)*255/7|0,(R[7]>>5)*255/7|0,(R[7]&3)*255/3|0]:P[bg];
+ ctx.fillStyle=blank?'#000':'rgb('+bc.join(',')+')'; ctx.fillRect(0,0,CW,CH);
+ if(blank){return mode+' (表示OFF)'}
+ if(mode==='T1'||mode==='T2'){
+  const cols=mode==='T1'?40:80, nt=mode==='T1'?(R[2]&0x7F)<<10:(R[2]&0x7C)<<10, pg=(R[4]&0x3F)<<11, rows=mode==='T2'&&lines===212?26:24;
+  const fc=P[fg],bgc=P[bg];
+  for(let y=0;y<H;y++){const row=((y+vs)&255)>>3, yy=(y+vs)&7; for(let x=0;x<W;x++){const col=(x/6)|0; const ch=VRAM[nt+row*cols+col]; const pat=VRAM[pg+ch*8+yy]; put(x,y,(pat>>(7-(x%6)))&1?fc:bgc)}}
+ }else if(mode==='G1'||mode==='G2'||mode==='G3'||mode==='MC'){
+  const nt=(R[2]&0x7F)<<10, ct=mode==='G2'||mode==='G3'?((R[10]&7)<<14)|((R[3]&0x80)<<6):((R[10]&7)<<14)|(R[3]<<6), pg=mode==='G2'||mode==='G3'?(R[4]&0x3C)<<11:(R[4]&0x3F)<<11;
+  for(let y=0;y<H;y++){const sy=(y+vs)&255,row=sy>>3,yy=sy&7; for(let x=0;x<256;x++){const col=x>>3;const ch=VRAM[nt+row*32+col];let c;
+   if(mode==='MC'){const b=VRAM[pg+ch*8+((row&3)<<1)+(yy>>2)];c=P[(x&4)?b&15:b>>4]}
+   else{const blk=mode==='G1'?0:(row>>3)*2048;const pat=VRAM[pg+blk+ch*8+yy];const cb=mode==='G1'?VRAM[ct+(ch>>3)]:VRAM[ct+blk+ch*8+yy];c=P[(pat>>(7-(x&7)))&1?cb>>4:cb&15]}
+   put(x,y,c)}}
+  sprites(mode==='G3'?2:1,P,put,H);
+ }else if(mode==='G4'||mode==='G5'){
+  const base=(R[2]&0x60)<<10; const bpl=mode==='G4'?128:128;
+  for(let y=0;y<H;y++){const sy=(y+vs)&255;const l=base+sy*bpl;for(let x=0;x<W;x++){const b=VRAM[l+(mode==='G4'?x>>1:x>>2)];let c; if(mode==='G4')c=P[(x&1)?b&15:b>>4]; else c=P[(b>>(6-2*(x&3)))&3]; put(x,y,c)}}
+  sprites(2,P,put,H,mode==='G5');
+ }else if(mode==='G6'||mode==='G7'){
+  const base=(R[2]&0x20)<<11;
+  for(let y=0;y<H;y++){const sy=(y+vs)&255;const l=base+sy*256;for(let x=0;x<W;x++){const b=VRAM[l+(mode==='G6'?x>>1:x)];let c; if(mode==='G6')c=P[(x&1)?b&15:b>>4]; else c=[((b>>2)&7)*255/7|0,(b>>5)*255/7|0,(b&3)*255/3|0]; put(x,y,c)}}
+  sprites(2,P,put,H,mode==='G6');
+ }
+ ctx.putImageData(img,bx,by); return mode+' '+W+'×'+H;
+}
+function sprites(smode,P,put,H,wide){
+ // Sprites in priority order (0 first). Mode 2 colour byte: bit 7 EC (shift left 32), bit 6 CC: the
+ // sprite's colour is ORed onto the sprite pixel already there (the "two sprites, three colours" trick,
+ // e.g. the Dragon Quest II shield); without CC a lower-numbered sprite keeps the pixel.
+ const R=regs; if(R[8]&2)return; const size=(R[1]&2)?16:8, mag=(R[1]&1)?2:1;
+ const at=smode===1?(((R[11]&3)<<15)|(R[5]<<7)):(((R[11]&3)<<15)|((R[5]&0xFC)<<7)), pg=(R[6]&0x3F)<<11, ct=at-0x200;
+ const sx=wide?2:1, cov=new Uint8Array(256*H);
+ for(let n=0;n<32;n++){const a=at+n*4;let y=VRAM[a],x=VRAM[a+1],pn=VRAM[a+2];if(y===208&&smode===1)break;if(y===216&&smode===2)break;
+  let col=VRAM[a+3]; if(smode===1&&(col&0x80))x-=32; if(size===16)pn&=0xFC;
+  y=(y+1)&255;
+  for(let ly=0;ly<size;ly++){let cc=col&15,ec=false,orr=false; if(smode===2){const c2=VRAM[ct+n*16+ly];cc=c2&15;ec=!!(c2&0x80);orr=!!(c2&0x40)} if(!cc)continue;
+   for(let lx=0;lx<size;lx++){const bit=VRAM[pg+pn*8+ly+(lx>>3)*16]>>(7-(lx&7))&1;if(!bit)continue;
+    for(let my=0;my<mag;my++)for(let mx=0;mx<mag;mx++){const py=y+ly*mag+my,px=x+lx*mag+mx-(ec?32:0);if(py<0||py>=H||px<0||px>=256)continue;const p=py*256+px;
+     if(orr)cov[p]|=cc;else if(!cov[p])cov[p]=cc;else continue;
+     for(let k=0;k<sx;k++)put(px*sx+k,py,P[cov[p]])}}}}
+}
+async function screen(){
+ if(busy){scrTimer=fpsMs?setTimeout(screen,fpsMs):null;return} busy=true;
+ try{const n=await fetchVram(!gotFull);gotFull=true;const info=render();$('#scrinfo').textContent=info+(n?' · '+n+' blocks':'')}catch(e){$('#scrinfo').textContent='取得失敗: '+e.message}
+ busy=false; scrTimer=fpsMs?setTimeout(screen,fpsMs):null;
+}
+function fullFrame(){gotFull=false;if(!scrTimer)screen()}
+function savePng(ys){const a=document.createElement('a');const d=new Date(),p=n=>String(n).padStart(2,'0');a.download='vz80-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.png';
+ let src=cv;if(ys>1){src=document.createElement('canvas');src.width=cv.width;src.height=cv.height*ys;const c2=src.getContext('2d');c2.imageSmoothingEnabled=false;c2.drawImage(cv,0,0,src.width,src.height)}   // nearest-neighbour stretch: no blur
+ a.href=src.toDataURL('image/png');a.click()}
+async function snapshot(){msg('CPU を一時停止して VRAM を取り込みます...');await api('stop');const r=await api('snapshot');await api('run');gotFull=false;msg(r.trim());if(!scrTimer)screen()}
+async function sendKeys(){const t=$('#scrkey').value;if(!t)return;$('#scrkey').value='';const r=await api('keys '+t+($('#scrent').checked?'\\n':''));if(!r.startsWith('ok'))msg(r)}
+$('#scrkey').addEventListener('keydown',e=>{if(e.key==='Enter')sendKeys()});
+async function sendCmd(){const c=$('#cmdline').value;if(!c)return;$('#cmdline').value='';cmd(c)}
+$('#cmdline').addEventListener('keydown',e=>{if(e.key==='Enter')sendCmd()});
+// ---- firmware package ----
+let fwSel='';
+function fwPick(){const f=$('#fwfile').files[0];if(!f){fwSel='';$('#fwapply').disabled=true;return}
+ const r=new FileReader();r.onload=()=>{const b=new Uint8Array(r.result);const ok=b.length>=64&&String.fromCharCode(b[0],b[1],b[2],b[3])==='VZP1';const label=ok?new TextDecoder().decode(b.subarray(8,32)).replace(/\0.*$/,''):'';fwSel=ok?'選択中: '+f.name+' ('+label+', '+f.size.toLocaleString('en-US')+' bytes)':'vz80 のパッケージではありません';$('#fwinfo').textContent=fwSel;$('#fwapply').disabled=!ok};r.readAsArrayBuffer(f.slice(0,64))}
+const log=(t,c)=>{const d=$('#proglog');d.innerHTML+=(c?'<span class="'+c+'">'+esc(t)+'</span>':esc(t))+'\n';d.scrollTop=1e9};
+const bar=p=>$('#progfill').style.width=p+'%';
+function fwApply(){const f=$('#fwfile').files[0];if(!f)return;$('#fwapply').disabled=true;$('#progx').disabled=true;$('#proglog').innerHTML='';bar(0);show('progmodal');
+ log('パッケージを送信しています ('+f.size.toLocaleString('en-US')+' bytes)。RP2350 → ESP32 の順に書き込みます。');
+ const x=new XMLHttpRequest();x.open('POST','/api/fw');x.timeout=600000;
+ x.upload.onprogress=e=>{if(e.lengthComputable)bar(e.loaded*90/e.total|0)};
+ x.onload=()=>{const t=x.responseText.trim();if(x.status===200&&t.startsWith('ok')){bar(95);log(t,'ok');log('ESP32 が再起動します。復帰を待っています...');waitBack()}else{log('失敗: '+t,'err');$('#progx').disabled=false}};
+ x.onerror=()=>{log('送信に失敗しました','err');$('#progx').disabled=false}; x.ontimeout=x.onerror;
+ x.send(f)}
+function waitBack(){let n=0;const t=setInterval(async()=>{n++;try{const j=await(await fetch('/api/status',{cache:'no-store'})).json();clearInterval(t);bar(100);log('復帰しました: '+j.version+' — テスト起動中。20 秒間問題なく動けば自動で確定します','ok');$('#progx').disabled=false;setTimeout(()=>location.reload(),1500)}catch(e){if(n>40){clearInterval(t);log('復帰を確認できませんでした。ページを再読み込みしてください','err');$('#progx').disabled=false}}},3000)}
+// ---- 近くの機器 ----
+let nearInfo={};
+function nearRow(p){const j=(nearInfo[p.ip]||{}).j;const cls=['vhd68','vfd68','vmpu68','vz80'].includes(p.device)?p.device:'x';const ver=(/^\d+\.\d+/.test(p.version)?'v':'fw ')+p.version;
+ const url='http://'+p.ip+(p.port&&p.port!=80?':'+p.port:'')+'/';const sub=[ver,j&&j.mac||'',j&&j.uptime!==undefined?'稼働 '+fmtUp(j.uptime):''].filter(Boolean).map(esc).join(' · ');
+ return '<div class="dev"><span><div><span class="tag '+cls+'">'+esc(p.device)+'</span><a href="'+url+'" target="_blank">'+esc(p.ip)+'</a>'+(p.name?' <b style="margin-left:8px">'+esc(p.name)+'</b>':'')+'</div>'+(sub?'<div class="meta" style="margin:2px 0 0 60px">'+sub+'</div>':'')+'</span><span><button onclick="window.open(\''+url+'\')">Web UI</button></span></div>'}
+async function nearFetch(p){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),1500);try{const j=await(await fetch('http://'+p.ip+':'+p.port+'/api/status',{signal:ac.signal,cache:'no-store'})).json();nearInfo[p.ip]={t:Date.now(),j}}catch(e){nearInfo[p.ip]={t:Date.now(),j:null}}clearTimeout(t)}
+async function peersPoll(force){try{const j=await(await fetch('/api/peers',{cache:'no-store'})).json();const all=(j.peers||[]).sort((a,b)=>+a.ip.split('.')[3]-+b.ip.split('.')[3]);
+ const near=()=>{$('#near').innerHTML=all.length?all.map(nearRow).join(''):'vz80 / vfd68 / vhd68 / vmpu68 が見つかりません（同じLANで起動していますか？）'};near();
+ const stale=all.filter(p=>force||!nearInfo[p.ip]||Date.now()-nearInfo[p.ip].t>30000);if(stale.length){await Promise.all(stale.map(nearFetch));near()}}catch(e){}}
+infoPlaceholder();renderFdd();renderSlots();tick();setInterval(tick,2000);ls().then(()=>{const h=decodeURIComponent(location.hash.slice(1)),[k,v]=h.split(/=(.*)/);if(k==='open'){const i=sdRows.findIndex(e=>e.n===v);if(i>=0)mountDlg(i)}else if(k==='view')sdView(join(cwd,v));else if(k==='mv')mvDlg(join(cwd,v));else if(k==='cache')cacheDlg();else if(k==='addvdrv')addVdrv();else if(k==='browse')imgBrowse(join(cwd,v));else if(k==='fdmenu')setTimeout(()=>fddMenu({stopPropagation(){},clientX:10,clientY:10},v,'?'),1500)
+});setInterval(()=>{if(!sdBusy&&$('#pickmodal').style.display!=='flex')ls()},10000);seg('segfps',500);screen();peersPoll();setInterval(peersPoll,5000);
+</script>
+</body>
+</html>

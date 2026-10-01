@@ -1,0 +1,13 @@
+build/
+*.uf2
+*.elf
+*.bin
+__pycache__/
+.DS_Store
+sdkconfig.old
+firmware/esp32c3/sdkconfig
+firmware/esp32c3/managed_components/
+firmware/esp32c3/dependencies.lock
+tests/host/sst_run
+tools/nextor/*.rom
+tools/nextor/*.dat

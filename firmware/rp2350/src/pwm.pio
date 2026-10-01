@@ -1,0 +1,18 @@
+; Derived from pico-examples pio/pwm/pwm.pio: Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+; SPDX-License-Identifier: BSD-3-Clause
+; PWM for the audio output on board 2.0 (GPIO45 -> R19 -> RC filter -> J3). From pico-examples pwm.pio.
+; The period is loaded once into ISR (pio_sm_put + pull + mov isr, osr before enabling); every period
+; one level is pulled from the TX FIFO (noblock: the last level repeats when the FIFO is empty), so a
+; DMA that streams samples into the FIFO is paced by the PWM itself.
+.program pwm
+.side_set 1 opt
+    pull noblock    side 0
+    mov x, osr
+    mov y, isr
+countloop:
+    jmp x!=y noset
+    jmp skip        side 1
+noset:
+    nop
+skip:
+    jmp y-- countloop

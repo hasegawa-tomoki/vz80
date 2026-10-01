@@ -1,0 +1,78 @@
+; vzboot.mac - boot sector code written into disk images made by vz80 (Web UI "イメージ作成").
+; MIT licensed, written for vz80 against the MSX-DOS boot sector interface:
+;   the disk ROM copies the first 256 bytes of sector 0 to C000h and calls C01Eh
+;   - first with Cy reset (from the BASIC environment; nothing to do, return),
+;   - then with Cy set (from the DOS environment) with HL = disk error handler
+;     pointer, DE = kernel enable routine, A = warm boot flag (0 = first boot).
+; The Cy-set call loads MSXDOS.SYS at 0100h through BDOS FCB calls and jumps to it.
+; If the file is missing on the first boot it starts Disk BASIC (disk ROM entry 4022h),
+; otherwise it prints a message and retries after a key press (like every MSX disk).
+;
+; Two layouts from one source:
+;   DOS1 (default): code at offset 1Eh.
+;   DOS2 (N80 -ds DOS2): JR at 1Eh, then the "VOL_ID" block (volume id used by
+;   MSX-DOS 2 / Nextor to detect disk changes), code at 30h.
+; Build: sh gen.sh  (needs Nestor80; writes firmware/esp32c3/main/bootcode.h)
+
+BDOS	equ	0F37Dh		; MSX-DOS 1 kernel entry (FCB calls)
+DSKBAS	equ	4022h		; disk ROM entry: start Disk BASIC
+_OPEN	equ	0Fh
+_SETDTA	equ	1Ah
+_RDBLK	equ	27h
+_STROUT	equ	09h
+_DIRIN	equ	07h
+
+	org	0C01Eh
+	ifdef	DOS2
+	jr	body
+	db	"VOL_ID"
+	db	0			; dirty flag
+	db	0FFh,0FFh,0FFh,0FFh	; volume id (mkimg overwrites it)
+	ds	5,0			; reserved
+	endif
+
+body:	ret	nc			; BASIC environment: nothing to start here
+	ld	(enakrn+1),de
+	ld	(first+1),a
+	ld	de,errvec
+	ld	(hl),e
+	inc	hl
+	ld	(hl),d			; disk errors come to "err" below
+retry:	ld	sp,0F51Fh
+	ld	de,fcb
+	ld	c,_OPEN
+	call	BDOS
+	inc	a
+	jr	z,nofile		; no MSXDOS.SYS
+	ld	de,100h
+	ld	c,_SETDTA
+	call	BDOS
+	ld	hl,1
+	ld	(fcb+14),hl		; record size 1
+	ld	hl,3F00h		; read up to 3F00h bytes to 0100h
+	ld	de,fcb
+	ld	c,_RDBLK
+	call	BDOS
+	jp	100h			; start MSXDOS.SYS
+
+errvec:	dw	err
+err:
+enakrn:	call	0			; re-enable the kernel (address patched above)
+	ld	a,c
+	and	0FEh
+	sub	2			; not ready (2/3) counts as "no system disk"
+nofile:
+first:	or	0			; warm boot flag (patched above)
+	jp	z,DSKBAS		; first boot and no system: Disk BASIC
+	ld	de,msg
+	ld	c,_STROUT
+	call	BDOS
+	ld	c,_DIRIN
+	call	BDOS
+	jr	retry
+
+msg:	db	"Boot error (MSXDOS.SYS)",13,10,"Press any key for retry",13,10,"$"
+fcb:	db	0,"MSXDOS  SYS"
+	; the remaining 25 bytes of the FCB are the zeros that follow in the sector
+	ds	25,0
+	end

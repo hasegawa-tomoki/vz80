@@ -1,0 +1,18 @@
+; SPI mode-0 slave for the ESP32 link on board 2.0 (PIO1, GPIO base 16).
+; SCK = GPIO41 (rel 25), MOSI = GPIO42 (in pin), MISO = GPIO46 (out pin), CS = GPIO44 (rel 28, jmp pin).
+; MSB first: OSR shifts left with autopull at 8 (8-bit DMA writes are replicated across the word, so
+; the byte sits in the top bits too); ISR shifts left with autopush at 8.
+; The state machine idles until CS falls, then shifts one bit per SCK: MISO changes after the falling
+; edge, MOSI is sampled at the rising edge. When CS rises the loop returns to `start`; link.c resets the
+; FIFOs and re-arms the DMA from the CS interrupt, so anything left over from a frame is discarded.
+; The SD card shares SCK/MOSI on the ESP side: while CS is high those edges are ignored here.
+.program spi_slave
+start:
+    wait 0 gpio 28          ; CS low: frame begins
+loop:
+    wait 0 gpio 25          ; SCK low
+    out pins, 1             ; present the next MISO bit
+    jmp pin start           ; CS high: frame over
+    wait 1 gpio 25          ; SCK high
+    in pins, 1              ; sample MOSI
+    jmp loop

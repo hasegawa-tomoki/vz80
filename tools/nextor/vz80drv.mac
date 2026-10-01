@@ -1,0 +1,439 @@
+; vz80 device-based driver for the Nextor kernel (MIT, part of vz80)
+;
+; The virtual drives of vz80 (floppy and hard disk images) are reached through the MSX device-switched
+; I/O ports: OUT (40h) selects the "vz80 disk" device by its ID, then ports 41h-4Ch carry a tiny sector
+; protocol (see firmware/rp2350/src/vzdisk.c). The board says how many drives it has (port 47h) and of
+; which kind (port 4Ch); Nextor gives each one a drive letter in that order. Nothing here depends on
+; the MSX model.
+;
+; Assemble with Nestor80:  N80 vz80drv.mac vz80drv.bin --build-type abs
+; The binary covers 4100h-7FCFh (16080 bytes) and is embedded with mknexrom.py.
+
+	.z80
+
+VZID	equ	0C8h		; device ID on port 40h
+PDEV	equ	40h
+PCMD	equ	41h		; W command / R status
+PSEC0	equ	42h
+PSEC1	equ	43h
+PSEC2	equ	44h
+PUNIT	equ	45h
+PDATA	equ	46h
+PIDX	equ	47h		; W reset buffer index / R unit count
+PCHG	equ	48h		; R media-changed bits
+PKIND	equ	4Ch		; R kind of the selected unit: 1 floppy, 2 hard disk, 0 none
+
+GWORK	equ	4045h
+CALBNK	equ	4042h
+NULLSTR	equ	781Fh		; "no format choice" string in the kernel bank
+
+	org	4100h
+
+; ---- driver header ------------------------------------------------------------------------------
+	db	"NEXTOR_DRIVER",0	; DRV_SIGN
+	db	5			; DRV_FLAGS: device-based, DRV_CONFIG implemented
+	db	0			; reserved
+	db	"vz80 virtual drives (microSD)   "	; DRV_NAME, 32 characters
+
+; ---- common routines (4130h) ---------------------------------------------------------------------
+	ret				; DRV_TIMI
+	ret
+	ret
+	jp	DRV_VERSION		; 4133h
+	jp	DRV_INIT		; 4136h
+	scf				; DRV_BASSTAT 4139h
+	ret
+	ret
+	scf				; DRV_BASDEV 413Ch
+	ret
+	ret
+	ret				; DRV_EXTBIO 413Fh
+	ret
+	ret
+	ret				; DRV_DIRECT0 4142h
+	ret
+	ret
+	ret				; DRV_DIRECT1
+	ret
+	ret
+	ret				; DRV_DIRECT2
+	ret
+	ret
+	ret				; DRV_DIRECT3
+	ret
+	ret
+	ret				; DRV_DIRECT4 414Eh
+	ret
+	ret
+	jp	DRV_CONFIG		; 4151h
+	ds	12			; 4154h-415Fh reserved
+
+; ---- device-based routines (4160h) ---------------------------------------------------------------
+	jp	DEV_RW			; 4160h
+	jp	DEV_INFO		; 4163h
+	jp	DEV_STATUS		; 4166h
+	jp	LUN_INFO		; 4169h
+
+; MSX-DOS 2 disk error codes
+ENRDY	equ	0FCh
+EDISK	equ	0FDh
+ERNF	equ	0F9h
+EWPROT	equ	0F8h
+EWRERR	equ	0FAh
+EIDEVL	equ	0B5h
+
+; ---- code ---------------------------------------------------------------------------------------
+
+DRV_VERSION:
+	ld	a,1
+	ld	bc,0
+	ret
+
+; Select the device. Returns Z if it answered (IN 40h = ~ID). Corrupts A only.
+SELECT:
+	ld	a,VZID
+	out	(PDEV),a
+	in	a,(PDEV)
+	cp	0FFh-VZID
+	ret
+
+DRV_INIT:
+	or	a
+	jr	nz,INIT2
+	ld	hl,0			; the 8 bytes at SLTWRK are enough as work area
+	xor	a			; A ignored for device-based drivers, Cy = 0: no timer interrupt
+	ret
+INIT2:	call	SELECT
+	ret	nz
+	in	a,(PCHG)		; forget changes before boot
+	ret
+
+; DRV_CONFIG: A = 1 -> B = drives at boot (one per unit, or 1 when C bit 5 asks for fewer);
+; A = 2, C = relative drive -> B = device C+1, C = LUN 1. Fixed mapping "drive n = unit n", and Nextor
+; keeps a drive assigned to a unit that has no image at boot (it looks again on each access).
+DRV_CONFIG:
+	cp	1
+	jr	z,CFG1
+	cp	2
+	jr	nz,CFGERR
+	ld	a,c
+	inc	a
+	ld	b,a
+	ld	c,1
+	xor	a
+	ret
+CFG1:	call	SELECT
+	jr	nz,CFGERR
+	in	a,(PIDX)
+	or	a
+	jr	z,CFGERR
+	bit	5,c
+	jr	z,CFG1OK
+	ld	a,1
+CFG1OK:	ld	b,a
+	xor	a
+	ret
+CFGERR:	ld	a,1
+	ret
+
+; Pointer to the 8-byte work area -> IX (page 3, per slot)
+WORKIX:
+	push	hl
+	push	de
+	push	bc
+	xor	a
+	ex	af,af'
+	xor	a
+	ld	ix,GWORK
+	call	CALBNK
+	pop	bc
+	pop	de
+	pop	hl
+	ret
+
+; Device index in A (1..N, N = units the board reports) -> unit 0.. selected on the device, A = unit.
+; Cy = 1 if invalid. The device must be selected. Preserves BC, DE, HL.
+DEVUNIT:
+	dec	a
+	push	bc
+	ld	b,a
+	in	a,(PIDX)		; unit count
+	ld	c,a
+	ld	a,b
+	cp	c			; Cy = unit < count
+	ccf				; Cy = invalid
+	pop	bc
+	ret	c
+	out	(PUNIT),a
+	ret
+
+; DEV_RW: Cy write, A device, B sectors, C LUN, HL address, DE -> 32-bit sector number
+DEV_RW:
+	push	af
+	push	hl
+	push	de
+	push	bc
+	call	SELECT
+	pop	bc
+	pop	de
+	pop	hl
+	jr	nz,RWNRDY
+	pop	af
+	push	af			; Cy kept on the stack
+	push	bc
+	call	DEVUNIT
+	pop	bc
+	jr	c,RWIDEVL
+	ld	a,c
+	dec	a
+	jr	nz,RWIDEVL		; one logical unit per device
+	push	bc
+	pop	iy			; IYH = total sector count (no register needs preserving, IY is free)
+	push	hl
+	ex	de,hl
+	ld	e,(hl)
+	inc	hl
+	ld	d,(hl)
+	inc	hl
+	ld	c,(hl)			; CDE = sector number (24 bits are plenty)
+	pop	hl
+	pop	af
+	jr	c,WRLOOP
+RDLOOP:	call	SETSEC
+	xor	a
+	out	(PCMD),a		; read
+	in	a,(PCMD)
+	or	a
+	jr	nz,IOERR
+	push	bc
+	ld	c,PDATA
+	ld	b,0
+	inir				; 256 bytes
+	inir				; 256 bytes
+	pop	bc
+	call	NEXTSEC
+	djnz	RDLOOP
+	xor	a
+	ret
+WRLOOP:	call	SETSEC
+	xor	a
+	out	(PIDX),a		; buffer index 0
+	push	bc
+	ld	c,PDATA
+	ld	b,0
+	otir
+	otir
+	pop	bc
+	ld	a,1
+	out	(PCMD),a		; write
+	in	a,(PCMD)
+	or	a
+	jr	nz,IOERR
+	call	NEXTSEC
+	djnz	WRLOOP
+	xor	a
+	ret
+RWNRDY:	pop	af
+	ld	a,ENRDY
+	ret
+RWIDEVL:
+	pop	af
+	ld	a,EIDEVL
+	ret
+; A = device status code -> MSX-DOS 2 error code, B = sectors done
+IOERR:	ld	c,b
+	push	iy
+	pop	de
+	ld	a,d			; total
+	sub	c			; minus remaining
+	ld	b,a
+	in	a,(PCMD)
+	cp	1
+	ld	c,EWPROT
+	jr	z,IOERR2
+	cp	2
+	ld	c,ENRDY
+	jr	z,IOERR2
+	cp	8
+	ld	c,ERNF
+	jr	z,IOERR2
+	cp	10
+	ld	c,EWRERR
+	jr	z,IOERR2
+	ld	c,EDISK
+IOERR2:	ld	a,c
+	ret
+
+SETSEC:	push	af
+	ld	a,e
+	out	(PSEC0),a
+	ld	a,d
+	out	(PSEC1),a
+	ld	a,c
+	out	(PSEC2),a
+	pop	af
+	ret
+NEXTSEC:
+	inc	de
+	ld	a,d
+	or	e
+	ret	nz
+	inc	c
+	ret
+
+; DEV_INFO: A device, B info type, HL buffer. A = 0 ok, 1 not available
+DEV_INFO:
+	push	bc
+	push	af
+	call	SELECT
+	pop	bc			; B = device
+	ld	a,b
+	pop	bc			; B = info type
+	jr	nz,INFOERR
+	call	DEVUNIT			; unit selected, A = unit
+	jr	c,INFOERR
+	ld	c,a			; C = unit
+	ld	a,b
+	or	a
+	jr	nz,INFOSTR
+	ld	(hl),1			; one logical unit
+	inc	hl
+	ld	(hl),0			; no feature flags
+	xor	a
+	ret
+INFOSTR:
+	cp	3
+	jr	nc,INFOERR		; no serial number
+	ld	de,MAKER
+	cp	1
+	jr	z,INFOCP
+	ld	a,c
+	add	a,"1"
+	ld	c,a			; C = unit number as a digit
+	in	a,(PKIND)
+	cp	2
+	ld	de,DEVHD
+	ld	a,DEVHDL-1
+	jr	z,INFONUM
+	ld	de,DEVFD
+	ld	a,DEVFDL-1
+INFONUM:				; the name's last character becomes the unit number (in the buffer)
+	push	hl
+	add	a,l
+	ld	l,a
+	jr	nc,INFONUM2
+	inc	h
+INFONUM2:
+	push	hl
+	pop	ix			; IX -> that character in the buffer
+	pop	hl
+	call	CPSTR
+	ld	(ix+0),c
+	xor	a
+	ret
+INFOCP:	call	CPSTR
+	xor	a
+	ret
+; Copy the string at DE to HL, padded with spaces to 64 bytes
+CPSTR:	ld	b,64
+CPSTR2:	ld	a,(de)
+	or	a
+	jr	z,CPPAD
+	ld	(hl),a
+	inc	hl
+	inc	de
+	djnz	CPSTR2
+	ret
+CPPAD:	ld	(hl)," "
+	inc	hl
+	djnz	CPPAD
+	ret
+INFOERR:
+	ld	a,1
+	ret
+MAKER:	db	"vz80",0
+DEVFD:	db	"Virtual floppy 1",0
+DEVFDL	equ	$-DEVFD-1
+DEVHD:	db	"Virtual hard disk 1",0
+DEVHDL	equ	$-DEVHD-1
+
+; DEV_STATUS: A device, B LUN. A = 0 n/a, 1 unchanged, 2 changed
+DEV_STATUS:
+	push	af
+	call	WORKIX			; IX = 8-byte work area
+	call	SELECT
+	pop	bc
+	ld	a,b
+	jr	nz,STNONE
+	call	DEVUNIT
+	jr	c,STNONE
+	ld	c,a			; unit
+	in	a,(PCHG)
+	or	(ix+0)
+	ld	(ix+0),a		; pending change bits for all units
+	ld	a,1
+	inc	c
+STBIT:	dec	c
+	jr	z,STBITOK
+	rlca
+	jr	STBIT
+STBITOK:				; A = 1 << unit
+	ld	b,a
+	and	(ix+0)
+	jr	z,STSAME
+	ld	a,(ix+0)
+	xor	b
+	ld	(ix+0),a		; clear this unit's bit
+	ld	a,2
+	ret
+STSAME:	ld	a,1
+	ret
+STNONE:	xor	a
+	ret
+
+; LUN_INFO: A device, B LUN, HL buffer (12 bytes). A = 0 ok, 1 error
+LUN_INFO:
+	ld	c,a			; device
+	ld	a,b
+	dec	a
+	jr	nz,LUNERR
+	call	SELECT
+	jr	nz,LUNERR
+	ld	a,c
+	call	DEVUNIT
+	jr	c,LUNERR
+	ld	(hl),0			; block device
+	inc	hl
+	ld	(hl),0			; sector size 512
+	inc	hl
+	ld	(hl),2
+	inc	hl
+	in	a,(49h)
+	ld	(hl),a
+	inc	hl
+	in	a,(4Ah)
+	ld	(hl),a
+	inc	hl
+	in	a,(4Bh)
+	ld	(hl),a
+	inc	hl
+	ld	(hl),0
+	inc	hl
+	in	a,(PKIND)
+	cp	2
+	ld	a,5			; floppy: removable + floppy disk drive
+	jr	nz,LUNFLG
+	ld	a,1			; hard disk image: removable (images are swapped from the Web UI)
+LUNFLG:	ld	(hl),a
+	inc	hl
+	ld	b,4
+LUNZ:	ld	(hl),0			; cylinders/heads/sectors: none (not used by the kernel)
+	inc	hl
+	djnz	LUNZ
+	xor	a
+	ret
+LUNERR:	ld	a,1
+	ret
+
+	defs	7FD0h-$,0FFh
+	end

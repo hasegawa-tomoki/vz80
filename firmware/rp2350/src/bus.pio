@@ -1,0 +1,89 @@
+; vz80 bus engine. MIT.
+;
+; bus_ctrl (PIO0, gpio base 0): one FIFO word per timing step.
+;   bit 0      EDGE   1 = wait for a rising CLK edge, 0 = falling
+;   bits 1-2   SKIP   number of additional edges of the same polarity to wait
+;   bit 3      ADDR   let the address SM output the next address (at this edge)
+;   bit 4      SAMPLE tell the data SM to latch D0-7 (before the strobes change)
+;   bits 5-11  STATE  new level of pins 25..31 (MREQ IORQ RD WR - M1 RFSH), applied after SAMPLE
+;   bit 12     WAITCHK sample /WAIT now; while low, wait one more full clock and re-sample
+;   bit 13     DATA   tell the data SM to drive (first event of a write) or release (second)
+; A transfer is 4 words; the CPU (or DMA) pushes them in order.
+;
+.program bus_ctrl
+.wrap_target
+top:
+    pull
+    out x, 1
+    out y, 2
+    jmp !x fall
+rise:
+    wait 0 gpio 24
+    wait 1 gpio 24
+    jmp y-- rise
+    jmp acts
+fall:
+    wait 1 gpio 24
+    wait 0 gpio 24
+    jmp y-- fall
+acts:
+    out x, 1
+    jmp !x no_addr
+    irq set 0                   ; bus_addr waits on flag 0 (same PIO)
+no_addr:
+    out x, 1
+    jmp !x no_sample
+    irq next set 1 [7]          ; bus_data (PIO1) flag 1: sample; hold before strobes change
+no_sample:
+    out pins, 7                 ; STATE -> pins 25..31
+    out x, 1
+    jmp !x no_wait
+wloop:
+    jmp pin no_wait             ; /WAIT high: proceed
+    wait 1 gpio 24
+    wait 0 gpio 24
+    jmp wloop
+no_wait:
+    out x, 1
+    jmp !x top
+    irq next set 2              ; bus_data flag 2: drive / release
+.wrap
+
+; bus_addr (PIO0): address word per transfer, applied when bus_ctrl raises flag 0.
+.program bus_addr
+.wrap_target
+    pull
+    wait 1 irq 0
+    out pins, 16
+.wrap
+
+; bus_data (PIO1, gpio base 16): one word per read/write transfer (none for refresh).
+;   bit 0     WRITE
+;   bits 1-8  data (writes)
+; DIR (gpio 38) = SET pin: 1 = drive MSX bus. OE (gpio 39) is owned by the CPU.
+.program bus_data
+.wrap_target
+dtop:
+    pull
+    out x, 1
+    jmp !x read
+    wait 1 irq 2                ; drive
+    set pins, 1                 ; DIR=1
+    out pins, 8
+    mov osr, ~null
+    out pindirs, 8
+    wait 1 irq 2                ; release
+    mov osr, null
+    out pindirs, 8
+    set pins, 0                 ; DIR=0
+    jmp dtop
+read:
+    wait 1 irq 1
+    in pins, 8                  ; autopush 8
+.wrap
+
+; bus_capture (PIO2, gpio base 0): free-running 32-pin sampler for the passive bus monitor.
+.program bus_capture
+.wrap_target
+    in pins, 32
+.wrap
